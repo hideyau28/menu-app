@@ -13,26 +13,20 @@ export default function Navigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#1c1c1e] border-t border-gray-900 z-50 safe-area-inset-bottom backdrop-blur-xl bg-opacity-95">
-      <div className="flex justify-around max-w-4xl mx-auto px-2 py-1">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#1c1c1e] border-t border-zinc-800">
+      <div className="flex justify-around max-w-4xl mx-auto px-2 py-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
+
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 py-2 text-center transition-colors relative`}
+              className={`flex-1 text-center text-sm py-2 ${
+                isActive ? "text-white font-semibold" : "text-zinc-400"
+              }`}
             >
-              <div className={`text-xs font-medium ${
-                isActive
-                  ? "text-[#007AFF]"
-                  : "text-gray-500"
-              }`}>
-                {item.label}
-              </div>
-              {isActive && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#007AFF] rounded-full"></div>
-              )}
+              {item.label}
             </Link>
           );
         })}
