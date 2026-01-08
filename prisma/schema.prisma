@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 旅程 (群組，例如: "日本之旅")
+model Trip {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  members   Member[]
+  expenses  Expense[]
+}
+
+// 成員 (例如: "Peter", "Mary")
+model Member {
+  id             String               @id @default(cuid())
+  name           String
+  tripId         String
+  trip           Trip                 @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  expensesPaid   Expense[]            @relation("Payer")
+  expenseParticipants ExpenseParticipant[]
+  createdAt      DateTime             @default(now())
+}
+
+// 每一條數 (例如: "食拉麵")
+model Expense {
+  id             String               @id @default(cuid())
+  title          String
+  amount         Float
+  date           DateTime             @default(now())
+  payerId        String
+  payer          Member               @relation("Payer", fields: [payerId], references: [id], onDelete: Cascade)
+  tripId         String
+  trip           Trip                 @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  participants   ExpenseParticipant[]
+  createdAt      DateTime             @default(now())
+  
+  // 額外欄位 (可選)
+  currency       String?
+  foreignAmount  Float?
+  note           String?
+  category       String?
+}
+
+// 中間表：記錄邊個有份夾這一餐 (多對多關係)
+model ExpenseParticipant {
+  expenseId String
+  memberId  String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member    Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([expenseId, memberId])
+}
