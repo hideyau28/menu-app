@@ -283,7 +283,7 @@ function ExpensesPageContent() {
               <button onClick={handleShareLink} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors">
                   🔗 分享連結
               </button>
-              <button onClick={() => router.push(code ? `/expenses?code=${code}` : '/expenses')} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors">
+              <button onClick={() => router.push('/expenses')} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors">
                   新旅程
               </button>
             </div>
