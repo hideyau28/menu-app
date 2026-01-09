@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/weather", label: "天氣" },
-  { href: "/currency", label: "匯率" },
-  { href: "/expenses", label: "夾錢" },
+  { href: "/weather", label: "天氣", icon: "🌤️" },
+  { href: "/expenses", label: "記帳", icon: "💰" },
+  { href: "/currency", label: "匯率", icon: "💱" },
 ];
 
 export default function Navigation() {
@@ -22,11 +22,14 @@ export default function Navigation() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 text-center text-sm py-2 ${
-                isActive ? "text-white font-semibold" : "text-zinc-400"
+              className={`flex-1 flex flex-col items-center gap-1 py-2 transition-colors ${
+                isActive ? "text-white" : "text-zinc-400"
               }`}
             >
-              {item.label}
+              <span className="text-xl">{item.icon}</span>
+              <span className={`text-xs ${isActive ? "font-semibold" : ""}`}>
+                {item.label}
+              </span>
             </Link>
           );
         })}
