@@ -90,6 +90,23 @@ export default function CurrencyPage() {
     setDisplay(String(val / 100));
   };
 
+  const backspace = () => {
+    if (history.includes("=")) {
+      clearAll();
+      return;
+    }
+    if (waitingNext) {
+      setDisplay("0");
+      setWaitingNext(false);
+      return;
+    }
+    if (display.length <= 1) {
+      setDisplay("0");
+    } else {
+      setDisplay(display.slice(0, -1));
+    }
+  };
+
   const compute = (a: number, b: number, op: Op) => {
     switch (op) {
       case "+": return a + b;
@@ -240,8 +257,8 @@ export default function CurrencyPage() {
 
       {/* Keypad */}
       <div className="grid grid-cols-4 gap-3 w-full max-w-[400px] mx-auto shrink-0 mb-4 pb-2">
+        <CalcButton label="⌫" type="action" onClick={backspace} />
         <CalcButton label="AC" type="action" onClick={clearAll} />
-        <CalcButton label="±" type="action" onClick={toggleSign} />
         <CalcButton label="%" type="action" onClick={percent} />
         <CalcButton label="÷" type="operator" onClick={() => setOp("÷")} active={operator === "÷"} />
 
