@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Settings2, ArrowDown } from "lucide-react";
+import { Settings2, ArrowDown, Delete } from "lucide-react";
 
 type Op = "+" | "-" | "×" | "÷" | null;
 
@@ -248,7 +248,10 @@ export default function CurrencyPage() {
           <div className="text-[46px] font-semibold text-[#ff9f0a] tracking-tight tabular-nums leading-none break-all">
             ${hkd !== null ? formatDisplay(String(hkd)) : "0"}
           </div>
-          <div className="text-[10px] text-white/40 font-mono mt-1.5">
+          <div
+            onClick={() => setIsEditingRate(true)}
+            className="text-[10px] text-white/40 font-mono mt-1.5 cursor-pointer hover:text-white/60 transition-colors active:scale-95"
+          >
             Rate: {rateToHKD}
           </div>
         </div>
@@ -257,7 +260,12 @@ export default function CurrencyPage() {
 
       {/* Keypad */}
       <div className="grid grid-cols-4 gap-3 w-full max-w-[400px] mx-auto shrink-0 mb-4 pb-2">
-        <CalcButton label="⌫" type="action" onClick={backspace} />
+        <button
+          onClick={backspace}
+          className="aspect-square rounded-full bg-[#a5a5a5] text-black flex items-center justify-center active:brightness-125 transition-all"
+        >
+          <Delete size={40} strokeWidth={2.5} />
+        </button>
         <CalcButton label="AC" type="action" onClick={clearAll} />
         <CalcButton label="%" type="action" onClick={percent} />
         <CalcButton label="÷" type="operator" onClick={() => setOp("÷")} active={operator === "÷"} />
