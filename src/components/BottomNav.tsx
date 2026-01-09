@@ -15,7 +15,17 @@ function BottomNavContent() {
   const searchParams = useSearchParams();
   const [tripCode, setTripCode] = useState<string | null>(null);
 
-  // Monitor URL and save trip code to cookie
+  // Load trip code from cookie on initial mount
+  useEffect(() => {
+    const cookies = document.cookie.split("; ");
+    const tripCookie = cookies.find((c) => c.startsWith("last_trip_code="));
+    if (tripCookie) {
+      const savedCode = tripCookie.split("=")[1];
+      setTripCode(savedCode);
+    }
+  }, []); // Run once on mount
+
+  // Monitor URL and save trip code to cookie when on expenses page
   useEffect(() => {
     const code = searchParams.get("code");
 
@@ -23,14 +33,6 @@ function BottomNavContent() {
       // Save trip code to cookie
       document.cookie = `last_trip_code=${code}; path=/; max-age=2592000`; // 30 days
       setTripCode(code);
-    }
-
-    // Load trip code from cookie on mount
-    const cookies = document.cookie.split("; ");
-    const tripCookie = cookies.find((c) => c.startsWith("last_trip_code="));
-    if (tripCookie) {
-      const savedCode = tripCookie.split("=")[1];
-      setTripCode(savedCode);
     }
   }, [pathname, searchParams]);
 
