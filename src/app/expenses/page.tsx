@@ -172,26 +172,12 @@ export default function ExpensesPage() {
     );
   }
 
-  if (loading) {
+  if (code && (loading || !data)) {
     return (
       <div className="min-h-screen bg-black p-4 text-white flex items-center justify-center">
         <div className="text-center">
           <div className="text-2xl mb-2">載入中...</div>
           <div className="text-sm text-gray-400">正在取得旅程資料</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="min-h-screen bg-black p-4 text-white">
-        <div className="text-center mt-20">
-          <div className="text-2xl mb-4">找不到旅程</div>
-          <div className="text-sm text-gray-400 mb-6">可能已被刪除或 ID 不正確</div>
-          <button onClick={() => router.push('/expenses')} className="px-6 py-3 bg-blue-600 rounded-xl">
-            返回建立新旅程
-          </button>
         </div>
       </div>
     );
