@@ -21,14 +21,15 @@ export async function createTrip(name: string, memberNames: string[]) {
 
     while (true) {
       try {
-        const tripResult = await client.query(
+        const tripResult = await client.query<{ id: string }>(
           "INSERT INTO trips (name, trip_code) VALUES ($1, $2) RETURNING id",
           [name, code]
         );
         tripId = tripResult.rows[0].id;
         break;
       } catch (e: any) {
-        if (e.code === "23505") {
+        // unique violation
+        if (e?.code === "23505") {
           code = generateCode();
         } else {
           throw e;
@@ -59,19 +60,21 @@ export async function getTripByCode(code: string) {
     [code]
   );
 
-  if (tripResult.rows.length === 0) {
-    return null;
-  }
+  if (tripResult.rows.length === 0) return null;
 
-  const trip = tripResult.rows[0];
+  const trip = tripResult.rows[0] as { id: string; name: string; trip_code: string };
 
   const membersResult = await query(
     "SELECT id, name FROM members WHERE trip_id = $1 ORDER BY created_at",
     [trip.id]
   );
 
+  const members = (membersResult.rows as Array<{ id: string; name: string }>).map(
+    (m: { id: string; name: string }) => ({ id: m.id, name: m.name })
+  );
+
   const expensesResult = await query(
-    `SELECT
+    `SELECT 
       e.id, e.title, e.category, e.note, e.date,
       e.payer_member_id, e.total_amount_hkd_cents,
       m.name as payer_name
@@ -82,23 +85,47 @@ export async function getTripByCode(code: string) {
     [trip.id]
   );
 
-  const expenses = [];
-  for (const exp of expensesResult.rows) {
+  const expenses: Array<{
+    id: string;
+    title: string;
+    category?: string | null;
+    note?: string | null;
+    date: string;
+    payerId: string;
+    payerName: string;
+    amountHKD: number;
+    participants: string[];
+  }> = [];
+
+  for (const expRow of expensesResult.rows as Array<{
+    id: string;
+    title: string;
+    category: string | null;
+    note: string | null;
+    date: Date;
+    payer_member_id: string;
+    total_amount_hkd_cents: number;
+    payer_name: string;
+  }>) {
     const participantsResult = await query(
       "SELECT member_id FROM expense_participants WHERE expense_id = $1",
-      [exp.id]
+      [expRow.id]
+    );
+
+    const participantIds = (participantsResult.rows as Array<{ member_id: string }>).map(
+      (p: { member_id: string }) => p.member_id
     );
 
     expenses.push({
-      id: exp.id,
-      title: exp.title,
-      category: exp.category,
-      note: exp.note,
-      date: exp.date.toISOString().slice(0, 10),
-      payerId: exp.payer_member_id,
-      payerName: exp.payer_name,
-      amountHKD: exp.total_amount_hkd_cents / 100,
-participants: participantsResult.rows.map((p: { member_id: string }) => p.member_id),
+      id: expRow.id,
+      title: expRow.title,
+      category: expRow.category,
+      note: expRow.note,
+      date: expRow.date.toISOString().slice(0, 10),
+      payerId: expRow.payer_member_id,
+      payerName: expRow.payer_name,
+      amountHKD: expRow.total_amount_hkd_cents / 100,
+      participants: participantIds,
     });
   }
 
@@ -106,7 +133,7 @@ participants: participantsResult.rows.map((p: { member_id: string }) => p.member
     id: trip.id,
     name: trip.name,
     code: trip.trip_code,
-    members: membersResult.rows.map((m) => ({ id: m.id, name: m.name })),
+    members,
     expenses,
   };
 }
@@ -125,19 +152,17 @@ export async function addExpense(payload: {
   try {
     await client.query("BEGIN");
 
-    const tripResult = await client.query(
+    const tripResult = await client.query<{ id: string }>(
       "SELECT id FROM trips WHERE trip_code = $1",
       [payload.code]
     );
 
-    if (tripResult.rows.length === 0) {
-      throw new Error("Trip not found");
-    }
+    if (tripResult.rows.length === 0) throw new Error("Trip not found");
 
     const tripId = tripResult.rows[0].id;
     const cents = Math.round(payload.amountHKD * 100);
 
-    const expenseResult = await client.query(
+    const expenseResult = await client.query<{ id: string }>(
       `INSERT INTO expenses
         (trip_id, title, category, note, payer_member_id, total_amount_hkd_cents, date)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -145,8 +170,8 @@ export async function addExpense(payload: {
       [
         tripId,
         payload.title,
-        payload.category || null,
-        payload.note || null,
+        payload.category ?? null,
+        payload.note ?? null,
         payload.payerId,
         cents,
         payload.date,
@@ -177,12 +202,12 @@ export async function deleteExpense(code: string, expenseId: string) {
     [code]
   );
 
-  if (tripResult.rows.length === 0) {
-    throw new Error("Trip not found");
-  }
+  if (tripResult.rows.length === 0) throw new Error("Trip not found");
+
+  const tripId = (tripResult.rows[0] as { id: string }).id;
 
   await query("DELETE FROM expenses WHERE id = $1 AND trip_id = $2", [
     expenseId,
-    tripResult.rows[0].id,
+    tripId,
   ]);
 }
