@@ -45,6 +45,15 @@ function ExpensesPageContent() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Share Link Handler
+  const handleShareLink = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => showToast("連結已複製"))
+        .catch(() => showToast("複製失敗", "error"));
+    }
+  };
+
   // --- 核心邏輯修改：移除 localStorage，改為 Server Action 直連檢查 ---
 
   // 1. 載入旅程 (Load Trip)
@@ -270,9 +279,14 @@ function ExpensesPageContent() {
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">{data.name}</h1>
-            <button onClick={() => router.push('/expenses')} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800">
-                新旅程
-            </button>
+            <div className="flex gap-2">
+              <button onClick={handleShareLink} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors">
+                  🔗 分享連結
+              </button>
+              <button onClick={() => router.push(code ? `/expenses?code=${code}` : '/expenses')} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors">
+                  新旅程
+              </button>
+            </div>
           </div>
 
           {/* Total Card */}
