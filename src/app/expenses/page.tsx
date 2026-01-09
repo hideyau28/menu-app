@@ -38,8 +38,10 @@ function ExpensesPageContent() {
   const [payerId, setPayerId] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
 
-  // Balances Accordion State
+  // Accordion States
   const [balancesExpanded, setBalancesExpanded] = useState(false);
+  const [settlementsExpanded, setSettlementsExpanded] = useState(false);
+  const [recordsExpanded, setRecordsExpanded] = useState(false);
 
   // Toast Helper
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -198,6 +200,57 @@ function ExpensesPageContent() {
     return bal;
   }, [data]);
 
+  // 計算還款建議 (Settlement Plan)
+  const settlements = useMemo(() => {
+    if (!data) return [];
+
+    // 建立債務人和債權人列表
+    const debtors: Array<{ id: string; name: string; amount: number }> = [];
+    const creditors: Array<{ id: string; name: string; amount: number }> = [];
+
+    Object.entries(balances).forEach(([id, balance]) => {
+      const member = data.members.find((m) => m.id === id);
+      if (!member) return;
+
+      if (balance < -0.01) {
+        // 欠錢者 (negative balance)
+        debtors.push({ id, name: member.name, amount: Math.abs(balance) });
+      } else if (balance > 0.01) {
+        // 借錢者 (positive balance)
+        creditors.push({ id, name: member.name, amount: balance });
+      }
+    });
+
+    // 按金額排序（由大到小）
+    debtors.sort((a, b) => b.amount - a.amount);
+    creditors.sort((a, b) => b.amount - a.amount);
+
+    // 生成還款建議
+    const transactions: Array<{ from: string; to: string; amount: number }> = [];
+    let i = 0;
+    let j = 0;
+
+    while (i < debtors.length && j < creditors.length) {
+      const debtor = debtors[i];
+      const creditor = creditors[j];
+      const payment = Math.min(debtor.amount, creditor.amount);
+
+      transactions.push({
+        from: debtor.name,
+        to: creditor.name,
+        amount: payment,
+      });
+
+      debtor.amount -= payment;
+      creditor.amount -= payment;
+
+      if (debtor.amount < 0.01) i++;
+      if (creditor.amount < 0.01) j++;
+    }
+
+    return transactions;
+  }, [data, balances]);
+
   // --- 畫面渲染邏輯 ---
 
   // 情況 A: 正在跟 Server 拿資料
@@ -347,44 +400,8 @@ function ExpensesPageContent() {
              </button>
           </div>
 
-          {/* Records List */}
-          <div className="space-y-3 mb-8">
-            <h3 className="font-bold text-gray-400 text-sm ml-1">最近記錄</h3>
-            {data.expenses.length === 0 && <div className="text-center text-gray-600 py-4">暫無記錄</div>}
-            {data.expenses.map((e) => {
-              // Calculate beneficiaries display
-              const allParticipants = e.participants.length === data.members.length;
-              const beneficiariesText = allParticipants
-                ? "全員"
-                : e.participants.map(pid => data.members.find(m => m.id === pid)?.name).filter(Boolean).join(", ");
-
-              return (
-                <div key={e.id} className="flex justify-between items-center bg-[#1c1c1e] p-4 rounded-2xl border border-gray-800">
-                  <div className="flex items-center gap-3">
-                    <div className="text-2xl">{CATEGORIES.find(c => c.id === e.category)?.icon || "📝"}</div>
-                    <div>
-                      <div className="font-bold">{e.title}</div>
-                      <div className="text-xs text-gray-400">
-                        {new Date(e.date).toLocaleDateString()}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold">${e.amountHKD.toFixed(1)}</div>
-                    <button onClick={() => handleDelete(e.id)} className="text-xs text-red-500 mt-1 px-2 py-1 bg-red-500/10 rounded-lg">
-                      刪除
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Balances - Moved to bottom with Accordion */}
-          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden">
+          {/* Balances Section */}
+          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
             <button
               onClick={() => setBalancesExpanded(!balancesExpanded)}
               className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
@@ -406,6 +423,90 @@ function ExpensesPageContent() {
                       <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
                         {bal > 0 ? `收 ${bal.toFixed(1)}` : bal < 0 ? `付 ${Math.abs(bal).toFixed(1)}` : "平手"}
                       </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Settlement Plan Section */}
+          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
+            <button
+              onClick={() => setSettlementsExpanded(!settlementsExpanded)}
+              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+            >
+              <h3 className="font-bold text-gray-300">建議還款方案</h3>
+              <span className="text-gray-500 text-sm">
+                {settlementsExpanded ? "▲" : "▼"}
+              </span>
+            </button>
+
+            {settlementsExpanded && (
+              <div className="px-4 pb-4">
+                {settlements.length === 0 ? (
+                  <div className="text-center text-gray-500 py-3">暫無須結算</div>
+                ) : (
+                  <div className="space-y-2">
+                    {settlements.map((s, idx) => (
+                      <div key={idx} className="flex items-center gap-3 bg-black p-3 rounded-xl">
+                        <span className="text-lg">💸</span>
+                        <div className="flex-1">
+                          <span className="font-medium text-red-400">{s.from}</span>
+                          <span className="text-gray-400 mx-2">→</span>
+                          <span className="font-medium text-green-400">{s.to}</span>
+                        </div>
+                        <span className="font-bold text-yellow-400">${s.amount.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Records List - Now Collapsible */}
+          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
+            <button
+              onClick={() => setRecordsExpanded(!recordsExpanded)}
+              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+            >
+              <h3 className="font-bold text-gray-300">最近記錄</h3>
+              <span className="text-gray-500 text-sm">
+                {recordsExpanded ? "▲" : "▼"}
+              </span>
+            </button>
+
+            {recordsExpanded && (
+              <div className="px-4 pb-4 space-y-2">
+                {data.expenses.length === 0 && <div className="text-center text-gray-500 py-3">暫無記錄</div>}
+                {data.expenses.map((e) => {
+                  // Calculate beneficiaries display
+                  const allParticipants = e.participants.length === data.members.length;
+                  const beneficiariesText = allParticipants
+                    ? "全員"
+                    : e.participants.map(pid => data.members.find(m => m.id === pid)?.name).filter(Boolean).join(", ");
+
+                  return (
+                    <div key={e.id} className="flex justify-between items-center bg-black p-3 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="text-xl">{CATEGORIES.find(c => c.id === e.category)?.icon || "📝"}</div>
+                        <div>
+                          <div className="font-bold text-sm">{e.title}</div>
+                          <div className="text-xs text-gray-400">
+                            {new Date(e.date).toLocaleDateString()}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
+                        <button onClick={() => handleDelete(e.id)} className="text-xs text-red-500 mt-1 px-2 py-1 bg-red-500/10 rounded-lg">
+                          刪除
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
