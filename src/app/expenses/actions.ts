@@ -46,10 +46,28 @@ export async function createTrip(name: string, memberNames: string[]) {
     }
 
     await client.query("COMMIT");
+
+    // Wait 1 second for DB sync
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Double-check verification: ensure trip was actually written
+    const verifyResult = await client.query(
+      "SELECT id, name, trip_code FROM trips WHERE trip_code = $1",
+      [code]
+    );
+
+    if (verifyResult.rows.length === 0) {
+      throw new Error("DB Write Failed: Trip not found after commit");
+    }
+
+    // Revalidate the expenses page
+    revalidatePath('/expenses');
+
     return { code };
-  } catch (e) {
+  } catch (e: any) {
     await client.query("ROLLBACK");
-    throw e;
+    const errorMsg = e?.message || "Unknown error during trip creation";
+    throw new Error(`Failed to create trip: ${errorMsg}`);
   } finally {
     client.release();
   }
