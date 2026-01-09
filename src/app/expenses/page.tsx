@@ -23,6 +23,9 @@ export default function ExpensesPage() {
   const [data, setData] = useState<TripData>(null);
   const [loading, setLoading] = useState(false);
 
+  // prevent UI flash before localStorage read
+  const [hydrated, setHydrated] = useState(false);
+
   // create trip UI
   const [tripName, setTripName] = useState("");
   const [setupNames, setSetupNames] = useState<string[]>(["", ""]);
@@ -42,17 +45,23 @@ export default function ExpensesPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // auto-redirect to last trip
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  // auto-redirect to last trip (only after hydration to avoid flash)
+  useEffect(() => {
+    if (!hydrated) return;
     if (!code) {
       const last = localStorage.getItem("last_trip_code");
       if (last) router.replace(`/expenses?code=${last}`);
     }
-  }, [code, router]);
+  }, [code, router, hydrated]);
 
   // load trip by code
   useEffect(() => {
     let cancelled = false;
+
     async function run() {
       if (!code) return;
 
@@ -66,7 +75,6 @@ export default function ExpensesPage() {
         if (result?.code) localStorage.setItem("last_trip_code", result.code);
 
         if (result?.members?.length) {
-          // initialize defaults for add expense form
           setPayerId((prev) => prev || result.members[0].id);
           setParticipantIds((prev) => (prev.length ? prev : result.members.map((m) => m.id)));
         }
@@ -77,6 +85,7 @@ export default function ExpensesPage() {
         if (!cancelled) setLoading(false);
       }
     }
+
     run();
     return () => {
       cancelled = true;
@@ -89,6 +98,9 @@ export default function ExpensesPage() {
     try {
       const result = await getTripByCode(code);
       setData(result);
+
+      if (result?.code) localStorage.setItem("last_trip_code", result.code);
+
       if (result?.members?.length) {
         setPayerId((prev) => prev || result.members[0].id);
         setParticipantIds((prev) => (prev.length ? prev : result.members.map((m) => m.id)));
@@ -120,7 +132,10 @@ export default function ExpensesPage() {
 
   const handleAddExpense = async () => {
     if (!data) return showToast("未載入旅程", "error");
-    if (!amount || !payerId || participantIds.length === 0) return showToast("資料不完整", "error");
+
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return showToast("金額不正確", "error");
+    if (!payerId || participantIds.length === 0) return showToast("資料不完整", "error");
 
     try {
       await addExpense({
@@ -131,13 +146,12 @@ export default function ExpensesPage() {
         date,
         payerId,
         participantIds,
-        amountHKD: Number(amount),
+        amountHKD: amountNum,
       });
 
       showToast("✅ 已新增");
       setAmount("");
       setNote("");
-      // refresh
       await reloadTrip();
     } catch (e) {
       console.error(e);
@@ -179,6 +193,9 @@ export default function ExpensesPage() {
   }, [data]);
 
   // -------- RENDER --------
+
+  // prevent flash before hydrated (so /expenses doesn't briefly show create page before redirect)
+  if (!hydrated && !code) return null;
 
   // no code: create trip page
   if (!code) {
@@ -232,23 +249,43 @@ export default function ExpensesPage() {
     );
   }
 
-  // with code: loading or not found
-  if (loading || !data) {
+  // with code: loading
+  if (loading) {
     return (
       <div className="min-h-screen bg-black p-4 text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl mb-2">{loading ? "載入中..." : "找不到旅程"}</div>
-          <div className="text-sm text-gray-400">
-            {loading ? "正在取得旅程資料" : "可能代碼不正確或資料未同步"}
-          </div>
-          {!loading && (
-            <button
-              onClick={() => router.replace("/expenses")}
-              className="mt-6 px-6 py-3 bg-blue-600 rounded-xl"
-            >
-              返回建立新旅程
-            </button>
-          )}
+          <div className="text-2xl mb-2">載入中...</div>
+          <div className="text-sm text-gray-400">正在取得旅程資料</div>
+        </div>
+      </div>
+    );
+  }
+
+  // with code: not found
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-black p-4 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl mb-2">找不到旅程</div>
+          <div className="text-sm text-gray-400">可能代碼不正確或資料未同步</div>
+          <button
+            onClick={() => router.replace("/expenses")}
+            className="mt-6 px-6 py-3 bg-blue-600 rounded-xl"
+          >
+            返回建立新旅程
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // A-mode gate: use DB truth only
+  if (data.isSetupComplete === false) {
+    return (
+      <div className="min-h-screen bg-black p-4 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl mb-2">旅程尚未完成設定</div>
+          <div className="text-sm text-gray-400">請由建立者完成成員設定</div>
         </div>
       </div>
     );
@@ -336,9 +373,7 @@ export default function ExpensesPage() {
                   p.includes(m.id) ? p.filter((x) => x !== m.id) : [...p, m.id]
                 )
               }
-              className={`px-3 py-1 rounded-full text-xs border ${participantIds.includes(m.id)
-                  ? "bg-blue-600 border-blue-600"
-                  : "border-gray-700"
+              className={`px-3 py-1 rounded-full text-xs border ${participantIds.includes(m.id) ? "bg-blue-600 border-blue-600" : "border-gray-700"
                 }`}
             >
               {m.name}
@@ -356,11 +391,7 @@ export default function ExpensesPage() {
         {Object.entries(balances).map(([id, bal]) => (
           <div key={id} className="flex justify-between text-sm p-3 bg-[#1c1c1e] rounded-xl">
             <span>{data.members.find((m) => m.id === id)?.name}</span>
-            <span
-              className={
-                bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"
-              }
-            >
+            <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
               {bal > 0 ? `收 $${bal.toFixed(1)}` : bal < 0 ? `付 $${(-bal).toFixed(1)}` : "-"}
             </span>
           </div>
