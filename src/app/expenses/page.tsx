@@ -197,8 +197,24 @@ function ExpensesPageContent() {
     );
   }
 
-  // 情況 B: 沒 Code 或者 Server 找不到資料 -> 顯示「建立新旅程」
-  if (!code || !data) {
+  // 情況 B: 有 code 但找不到資料 -> 顯示錯誤
+  if (code && !data) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+            <div className="mb-4 text-4xl">❌</div>
+            <div className="text-xl mb-2">找不到旅程</div>
+            <div className="text-sm text-gray-400 mb-6">代碼: {code}</div>
+            <button onClick={() => router.push('/expenses')} className="px-6 py-3 bg-blue-600 rounded-xl">
+                建立新旅程
+            </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 情況 C: 沒有 code -> 顯示「建立新旅程」
+  if (!code) {
     return (
       <div className="min-h-screen bg-black p-4 text-white pb-20">
         <div className="max-w-md mx-auto">
@@ -242,7 +258,12 @@ function ExpensesPageContent() {
     );
   }
 
-  // 情況 C: Server 確認有資料 -> 顯示主畫面 (Dashboard)
+  // 情況 D: 有 code 且有 data -> 顯示主畫面 (Dashboard)
+  if (!data) {
+    // 理論上不會到達這裡，但為了 TypeScript 類型安全
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-black p-4 text-white pb-24">
       <div className="max-w-md mx-auto">
