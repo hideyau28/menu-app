@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense } from "./actions";
 
@@ -15,7 +15,7 @@ const CATEGORIES = [
   { id: "other", label: "其他", icon: "📝" },
 ];
 
-export default function ExpensesPage() {
+function ExpensesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
@@ -61,9 +61,10 @@ export default function ExpensesPage() {
       .then((res) => {
         if (cancelled) return;
         setData(res);
-        localStorage.setItem("last_trip_code", res.code);
-        setPayerId(res.members[0]?.id ?? "");
-        setParticipantIds(res.members.map((m) => m.id));
+        if (res) {
+          setPayerId(res.members[0]?.id ?? "");
+          setParticipantIds(res.members.map((m) => m.id));
+        }
       })
       .catch(() => setData(null))
       .finally(() => !cancelled && setLoading(false));
@@ -207,5 +208,13 @@ export default function ExpensesPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function ExpensesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">載入中...</div>}>
+      <ExpensesPageContent />
+    </Suspense>
   );
 }
