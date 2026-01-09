@@ -5,13 +5,13 @@ let pool: Pool | null = null;
 function getPool() {
   if (!pool) {
     const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error('DATABASE_URL not found');
-    }
-ssl: false,    pool = new Pool({
-      connectionString,
-      ssl: false,
-    });
+if (!connectionString) {
+  throw new Error('DATABASE_URL not found');
+}
+pool = new Pool({
+  connectionString,
+  ssl: false,
+});
   }
   return pool;
 }
