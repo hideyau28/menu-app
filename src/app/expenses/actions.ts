@@ -99,7 +99,6 @@ export async function getTripByCode(code: string) {
       payerName: exp.payer_name,
       amountHKD: exp.total_amount_hkd_cents / 100,
 participants: participantsResult.rows.map((p: { member_id: string }) => p.member_id),
- participants: participantsResult.rows.map((p) => p.member_id),
     });
   }
 
