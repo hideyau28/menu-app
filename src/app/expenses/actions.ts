@@ -1,6 +1,7 @@
 "use server";
 
 import { query, getClient } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -188,6 +189,7 @@ export async function addExpense(payload: {
     }
 
     await client.query("COMMIT");
+    revalidatePath('/expenses');
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -210,4 +212,5 @@ export async function deleteExpense(code: string, expenseId: string) {
     expenseId,
     tripId,
   ]);
+  revalidatePath('/expenses');
 }
