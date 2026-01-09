@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Settings2, ArrowDown, Delete } from "lucide-react";
 
 type Op = "+" | "-" | "×" | "÷" | null;
@@ -11,8 +11,32 @@ export default function CurrencyPage() {
   const [operator, setOperator] = useState<Op>(null);
   const [waitingNext, setWaitingNext] = useState<boolean>(false);
   const [history, setHistory] = useState<string>("");
-  const [rateToHKD, setRateToHKD] = useState<string>("0.053");
+  const [rateToHKD, setRateToHKD] = useState<string>(() => {
+    // Initialize from localStorage to prevent flickering
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("saved_exchange_rate");
+      return saved || "0.053";
+    }
+    return "0.053";
+  });
   const [isEditingRate, setIsEditingRate] = useState(false);
+
+  // Load saved exchange rate on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("saved_exchange_rate");
+      if (saved) {
+        setRateToHKD(saved);
+      }
+    }
+  }, []);
+
+  // Save exchange rate to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && rateToHKD) {
+      localStorage.setItem("saved_exchange_rate", rateToHKD);
+    }
+  }, [rateToHKD]);
 
   const calculateHKD = (): number | null => {
     const value = parseFloat(display);
