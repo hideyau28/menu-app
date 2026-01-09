@@ -38,6 +38,9 @@ function ExpensesPageContent() {
   const [payerId, setPayerId] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
 
+  // Balances Accordion State
+  const [balancesExpanded, setBalancesExpanded] = useState(false);
+
   // Toast Helper
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -75,10 +78,11 @@ function ExpensesPageContent() {
         if (res) {
           // DB 有資料 -> 設定資料並顯示主畫面
           setData(res);
-          // 預設填入第一個成員
+          // 預設填入第一個成員並全選參與者
           if (res.members.length > 0) {
             setPayerId(prev => prev || res.members[0].id);
-            setParticipantIds(prev => prev.length > 0 ? prev : res.members.map((m) => m.id));
+            // 預設全選所有成員
+            setParticipantIds(res.members.map((m) => m.id));
           }
         } else {
           // DB 沒資料 (Code 錯誤或被刪除) -> 清空，顯示建立畫面
@@ -154,6 +158,8 @@ function ExpensesPageContent() {
 
       setAmount("");
       setNote("");
+      // 重新全選所有參與者
+      setParticipantIds(data.members.map((m) => m.id));
       await reloadTrip();
       showToast("已新增");
     } catch (e) {
@@ -297,24 +303,7 @@ function ExpensesPageContent() {
             </div>
           </div>
 
-          {/* Balances */}
-          <div className="space-y-2 mb-8">
-            <h3 className="font-bold text-gray-400 text-sm ml-1">結餘概況</h3>
-            {Object.entries(balances).map(([id, bal]) => {
-                const member = data.members.find((m) => m.id === id);
-                if (!member) return null;
-                return (
-                    <div key={id} className="flex justify-between items-center bg-[#1c1c1e] p-4 rounded-2xl border border-gray-800">
-                    <span className="font-medium">{member.name}</span>
-                    <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
-                        {bal > 0 ? `收 ${bal.toFixed(1)}` : bal < 0 ? `付 ${Math.abs(bal).toFixed(1)}` : "平手"}
-                    </span>
-                    </div>
-                );
-            })}
-          </div>
-
-          {/* Add Expense Form */}
+          {/* Add Expense Form - Moved to top */}
           <div className="bg-[#1c1c1e] p-5 rounded-3xl border border-gray-800 mb-8 space-y-4">
              <div className="grid grid-cols-3 gap-2">
                 {CATEGORIES.map((c) => (
@@ -359,26 +348,69 @@ function ExpensesPageContent() {
           </div>
 
           {/* Records List */}
-          <div className="space-y-3">
+          <div className="space-y-3 mb-8">
             <h3 className="font-bold text-gray-400 text-sm ml-1">最近記錄</h3>
             {data.expenses.length === 0 && <div className="text-center text-gray-600 py-4">暫無記錄</div>}
-            {data.expenses.map((e) => (
+            {data.expenses.map((e) => {
+              // Calculate beneficiaries display
+              const allParticipants = e.participants.length === data.members.length;
+              const beneficiariesText = allParticipants
+                ? "全員"
+                : e.participants.map(pid => data.members.find(m => m.id === pid)?.name).filter(Boolean).join(", ");
+
+              return (
                 <div key={e.id} className="flex justify-between items-center bg-[#1c1c1e] p-4 rounded-2xl border border-gray-800">
-                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                     <div className="text-2xl">{CATEGORIES.find(c => c.id === e.category)?.icon || "📝"}</div>
                     <div>
-                        <div className="font-bold">{e.title}</div>
-                        <div className="text-xs text-gray-400">{new Date(e.date).toLocaleDateString()} · {data.members.find(m => m.id === e.payerId)?.name} 付款</div>
+                      <div className="font-bold">{e.title}</div>
+                      <div className="text-xs text-gray-400">
+                        {new Date(e.date).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
+                      </div>
                     </div>
-                </div>
-                <div className="text-right">
+                  </div>
+                  <div className="text-right">
                     <div className="font-bold">${e.amountHKD.toFixed(1)}</div>
                     <button onClick={() => handleDelete(e.id)} className="text-xs text-red-500 mt-1 px-2 py-1 bg-red-500/10 rounded-lg">
-                    刪除
+                      刪除
                     </button>
+                  </div>
                 </div>
-                </div>
-            ))}
+              );
+            })}
+          </div>
+
+          {/* Balances - Moved to bottom with Accordion */}
+          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden">
+            <button
+              onClick={() => setBalancesExpanded(!balancesExpanded)}
+              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+            >
+              <h3 className="font-bold text-gray-300">結餘狀況</h3>
+              <span className="text-gray-500 text-sm">
+                {balancesExpanded ? "▲" : "▼"}
+              </span>
+            </button>
+
+            {balancesExpanded && (
+              <div className="px-4 pb-4 space-y-2">
+                {Object.entries(balances).map(([id, bal]) => {
+                  const member = data.members.find((m) => m.id === id);
+                  if (!member) return null;
+                  return (
+                    <div key={id} className="flex justify-between items-center bg-black p-3 rounded-xl">
+                      <span className="font-medium">{member.name}</span>
+                      <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
+                        {bal > 0 ? `收 ${bal.toFixed(1)}` : bal < 0 ? `付 ${Math.abs(bal).toFixed(1)}` : "平手"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
       </div>
 

@@ -156,7 +156,7 @@ export default function CurrencyPage() {
     return (
       <button
         onClick={onClick}
-        className={`w-full aspect-[1/0.92] rounded-full text-[26px] sm:text-[28px] font-medium flex items-center justify-center active:brightness-125 transition-all ${bgClass}`}
+        className={`aspect-square rounded-full text-3xl font-light flex items-center justify-center active:brightness-125 transition-all ${bgClass}`}
       >
         {label}
       </button>
@@ -239,7 +239,7 @@ export default function CurrencyPage() {
       </div>
 
       {/* Keypad */}
-      <div className="grid grid-cols-4 gap-y-1 gap-x-1.5 w-full max-w-[400px] mx-auto shrink-0 mb-3">
+      <div className="grid grid-cols-4 gap-3 w-full max-w-[400px] mx-auto shrink-0 mb-4 pb-2">
         <CalcButton label="AC" type="action" onClick={clearAll} />
         <CalcButton label="±" type="action" onClick={toggleSign} />
         <CalcButton label="%" type="action" onClick={percent} />
@@ -262,7 +262,7 @@ export default function CurrencyPage() {
 
         <button
           onClick={() => inputDigit("0")}
-          className="col-span-2 w-full h-full rounded-full bg-[#333333] text-white text-[26px] sm:text-[28px] font-medium text-left pl-8 active:brightness-125 transition-all"
+          className="col-span-2 rounded-full bg-[#333333] text-white text-3xl font-light text-left pl-9 active:brightness-125 transition-all aspect-[2.25/1] flex items-center"
         >
           0
         </button>
