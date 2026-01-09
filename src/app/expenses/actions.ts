@@ -93,9 +93,10 @@ export async function getTripByCode(code: string) {
   );
 
   const expensesResult = await query(
-    `SELECT 
+    `SELECT
       e.id, e.title, e.category, e.note, e.date,
       e.payer_member_id, e.total_amount_hkd_cents,
+      e.original_currency, e.original_amount_cents,
       m.name as payer_name
     FROM expenses e
     JOIN members m ON e.payer_member_id = m.id
@@ -113,7 +114,9 @@ export async function getTripByCode(code: string) {
     payerId: string;
     payerName: string;
     amountHKD: number;
-    participants: string[];
+    participants: Array<string | { id: string; customAmount?: number }>;
+    originalCurrency?: string | null;
+    originalAmount?: number | null;
   }> = [];
 
   for (const expRow of expensesResult.rows as Array<{
@@ -124,15 +127,27 @@ export async function getTripByCode(code: string) {
     date: Date;
     payer_member_id: string;
     total_amount_hkd_cents: number;
+    original_currency: string | null;
+    original_amount_cents: number | null;
     payer_name: string;
   }>) {
     const participantsResult = await query(
-      "SELECT member_id FROM expense_participants WHERE expense_id = $1",
+      "SELECT member_id, amount_cents FROM expense_participants WHERE expense_id = $1",
       [expRow.id]
     );
 
-    const participantIds = (participantsResult.rows as Array<{ member_id: string }>).map(
-      (p: { member_id: string }) => p.member_id
+    const participants = (participantsResult.rows as Array<{ member_id: string; amount_cents: number | null }>).map(
+      (p: { member_id: string; amount_cents: number | null }) => {
+        // If amount_cents is null, return just the ID (equal split)
+        // Otherwise, return object with customAmount
+        if (p.amount_cents === null) {
+          return p.member_id;
+        }
+        return {
+          id: p.member_id,
+          customAmount: p.amount_cents / 100,
+        };
+      }
     );
 
     expenses.push({
@@ -144,7 +159,9 @@ export async function getTripByCode(code: string) {
       payerId: expRow.payer_member_id,
       payerName: expRow.payer_name,
       amountHKD: expRow.total_amount_hkd_cents / 100,
-      participants: participantIds,
+      participants: participants,
+      originalCurrency: expRow.original_currency,
+      originalAmount: expRow.original_amount_cents ? expRow.original_amount_cents / 100 : null,
     });
   }
 
@@ -166,6 +183,9 @@ export async function addExpense(payload: {
   payerId: string;
   participantIds: string[];
   amountHKD: number;
+  originalCurrency?: string;
+  originalAmount?: number;
+  customSplits?: Record<string, string>;
 }) {
   const client = await getClient();
   try {
@@ -180,11 +200,15 @@ export async function addExpense(payload: {
 
     const tripId = tripResult.rows[0].id;
     const cents = Math.round(payload.amountHKD * 100);
+    const originalCents = payload.originalAmount
+      ? Math.round(payload.originalAmount * 100)
+      : cents;
+    const currency = payload.originalCurrency || 'HKD';
 
     const expenseResult = await client.query<{ id: string }>(
       `INSERT INTO expenses
-        (trip_id, title, category, note, payer_member_id, total_amount_hkd_cents, date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+        (trip_id, title, category, note, payer_member_id, total_amount_hkd_cents, date, original_currency, original_amount_cents)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id`,
       [
         tripId,
@@ -194,15 +218,22 @@ export async function addExpense(payload: {
         payload.payerId,
         cents,
         payload.date,
+        currency,
+        originalCents,
       ]
     );
 
     const expenseId = expenseResult.rows[0].id;
 
     for (const memberId of payload.participantIds) {
+      const customAmount = payload.customSplits?.[memberId];
+      const amountCents = customAmount
+        ? Math.round(parseFloat(customAmount) * 100)
+        : null; // null means equal split
+
       await client.query(
-        "INSERT INTO expense_participants (expense_id, member_id) VALUES ($1, $2)",
-        [expenseId, memberId]
+        "INSERT INTO expense_participants (expense_id, member_id, amount_cents) VALUES ($1, $2, $3)",
+        [expenseId, memberId, amountCents]
       );
     }
 

@@ -16,6 +16,15 @@ const CATEGORIES = [
   { id: "other", label: "其他", icon: "📝" },
 ];
 
+const CATEGORY_COLORS: Record<string, string> = {
+  dining: '#3b82f6',    // blue
+  transport: '#f97316', // orange
+  hotel: '#a855f7',     // purple
+  shopping: '#ec4899',  // pink
+  activity: '#10b981',  // green
+  other: '#6b7280',     // gray
+};
+
 function ExpensesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,6 +46,10 @@ function ExpensesPageContent() {
   const [amount, setAmount] = useState("");
   const [payerId, setPayerId] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [currency, setCurrency] = useState<'HKD' | 'JPY'>('HKD');
+  const [exchangeRate, setExchangeRate] = useState(0.053); // JPY to HKD
+  const [splitMode, setSplitMode] = useState<'equal' | 'custom'>('equal');
+  const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
 
   // Accordion States
   const [balancesExpanded, setBalancesExpanded] = useState(false);
@@ -51,8 +64,25 @@ function ExpensesPageContent() {
   };
 
   // Share Link Handler
-  const handleShareLink = () => {
+  const handleShareLink = async () => {
     if (typeof window !== "undefined") {
+      // Try Web Share API first (mobile)
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: data?.name || '旅程記帳',
+            text: '一起來記帳吧！',
+            url: window.location.href,
+          });
+          showToast("已分享");
+          return;
+        } catch (err) {
+          // User cancelled or share failed, fall through to clipboard
+          if ((err as Error).name === 'AbortError') return; // User cancelled
+        }
+      }
+
+      // Fallback to clipboard
       navigator.clipboard.writeText(window.location.href)
         .then(() => showToast("連結已複製"))
         .catch(() => showToast("複製失敗", "error"));
@@ -107,6 +137,27 @@ function ExpensesPageContent() {
     };
   }, [code]);
 
+  // Load exchange rate from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedRate = localStorage.getItem('saved_exchange_rate');
+      if (savedRate) {
+        setExchangeRate(parseFloat(savedRate));
+      }
+    }
+  }, []);
+
+  // Reset custom splits when participants change or split mode changes
+  useEffect(() => {
+    if (splitMode === 'custom' && participantIds.length > 0) {
+      const newSplits: Record<string, string> = {};
+      participantIds.forEach(id => {
+        newSplits[id] = customSplits[id] || '';
+      });
+      setCustomSplits(newSplits);
+    }
+  }, [participantIds, splitMode]);
+
   // 2. 刷新數據 (Reload)
   const reloadTrip = async () => {
     if (!code) return;
@@ -146,6 +197,30 @@ function ExpensesPageContent() {
       return;
     }
 
+    const amountValue = parseFloat(amount);
+    const amountHKD = currency === 'JPY'
+      ? amountValue * exchangeRate
+      : amountValue;
+
+    // Validate custom splits
+    if (splitMode === 'custom') {
+      const splitTotal = Object.values(customSplits)
+        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+      const diff = Math.abs(amountHKD - splitTotal);
+
+      if (diff > 1) {
+        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(2)})`, "error");
+        return;
+      }
+
+      // Check all participants have amounts
+      const hasEmptySplits = participantIds.some(pid => !customSplits[pid] || parseFloat(customSplits[pid]) === 0);
+      if (hasEmptySplits) {
+        showToast("請輸入所有參與者的分擔金額", "error");
+        return;
+      }
+    }
+
     try {
       await addExpense({
         code: data.code,
@@ -155,11 +230,17 @@ function ExpensesPageContent() {
         date,
         payerId,
         participantIds,
-        amountHKD: Number(amount),
+        amountHKD,
+        originalCurrency: currency,
+        originalAmount: amountValue,
+        customSplits: splitMode === 'custom' ? customSplits : undefined,
       });
 
       setAmount("");
       setNote("");
+      setCurrency('HKD'); // Reset to HKD
+      setSplitMode('equal'); // Reset split mode
+      setCustomSplits({}); // Clear custom splits
       // 重新全選所有參與者
       setParticipantIds(data.members.map((m) => m.id));
       await reloadTrip();
@@ -190,10 +271,22 @@ function ExpensesPageContent() {
     data.members.forEach((m) => (bal[m.id] = 0));
 
     data.expenses.forEach((e) => {
-      const share = e.amountHKD / e.participants.length;
+      // Payer adds full amount
       bal[e.payerId] += e.amountHKD;
-      e.participants.forEach((pid) => {
-          if (bal[pid] !== undefined) bal[pid] -= share;
+
+      // Participants subtract their share
+      e.participants.forEach((participant) => {
+        const memberId = typeof participant === 'string' ? participant : participant.id;
+
+        if (bal[memberId] !== undefined) {
+          // Check if custom split exists
+          const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
+          const share = customAmount !== undefined
+            ? customAmount
+            : e.amountHKD / e.participants.length;
+
+          bal[memberId] -= share;
+        }
       });
     });
 
@@ -333,7 +426,7 @@ function ExpensesPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-4 text-white pb-24">
+    <div className="min-h-screen bg-black p-4 pt-12 text-white pb-24">
       <div className="max-w-md mx-auto">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
@@ -349,27 +442,113 @@ function ExpensesPageContent() {
           </div>
 
           {/* Total Card */}
-          <div className="mb-6 p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl shadow-lg border border-white/10">
-            <div className="text-blue-100 text-sm mb-1">總開支</div>
-            <div className="text-4xl font-bold">
+          <div className="mb-6 p-6 bg-[#1c1c1e] rounded-3xl shadow-lg border border-gray-800">
+            <div className="text-gray-400 text-sm mb-1">總開支</div>
+            <div className="text-4xl font-bold text-white">
                 HKD {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toFixed(2)}
             </div>
+
+            {/* Rainbow Proportion Bar */}
+            {data.expenses.length > 0 && (() => {
+              const total = data.expenses.reduce((s, e) => s + e.amountHKD, 0);
+              if (total === 0) return null;
+
+              // Calculate category totals
+              const categoryTotals = CATEGORIES.map(cat => ({
+                id: cat.id,
+                label: cat.label,
+                amount: data.expenses
+                  .filter(e => e.category === cat.id)
+                  .reduce((s, e) => s + e.amountHKD, 0),
+              })).filter(c => c.amount > 0);
+
+              if (categoryTotals.length === 0) return null;
+
+              return (
+                <div className="mt-4">
+                  <div className="flex h-2 rounded-full overflow-hidden">
+                    {categoryTotals.map(cat => (
+                      <div
+                        key={cat.id}
+                        style={{
+                          width: `${(cat.amount / total) * 100}%`,
+                          backgroundColor: CATEGORY_COLORS[cat.id] || '#6b7280'
+                        }}
+                        title={`${cat.label}: $${cat.amount.toFixed(1)}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Add Expense Form - Moved to top */}
           <div className="bg-[#1c1c1e] p-5 rounded-3xl border border-gray-800 mb-8 space-y-4">
              <div className="grid grid-cols-3 gap-2">
-                {CATEGORIES.map((c) => (
-                    <button key={c.id} onClick={() => setCategory(c.id)}
-                        className={`p-2 rounded-xl text-sm border transition-all ${category === c.id ? "bg-blue-600 border-blue-600 text-white" : "border-gray-700 text-gray-400 hover:bg-gray-800"}`}>
-                        <span className="mr-1">{c.icon}</span>{c.label}
+                {CATEGORIES.map((c) => {
+                  const color = CATEGORY_COLORS[c.id] || '#6b7280';
+                  const isSelected = category === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setCategory(c.id)}
+                      className={`p-2 rounded-xl text-sm border-2 transition-all text-white ${
+                        isSelected ? 'font-bold scale-105' : 'hover:scale-105'
+                      }`}
+                      style={{
+                        borderColor: color,
+                        backgroundColor: isSelected ? color : 'transparent',
+                      }}
+                    >
+                      <span className="mr-1">{c.icon}</span>{c.label}
                     </button>
-                ))}
+                  );
+                })}
              </div>
 
+             {/* Currency Toggle */}
+             <div className="flex items-center gap-2">
+               <span className="text-xs text-gray-500 whitespace-nowrap">幣別:</span>
+               <button
+                 onClick={() => setCurrency('JPY')}
+                 className={`px-3 py-1 rounded-full text-xs border transition-all ${
+                   currency === 'JPY'
+                     ? 'bg-blue-600 border-blue-600 text-white font-bold'
+                     : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+                 }`}
+               >
+                 JPY
+               </button>
+               <button
+                 onClick={() => setCurrency('HKD')}
+                 className={`px-3 py-1 rounded-full text-xs border transition-all ${
+                   currency === 'HKD'
+                     ? 'bg-blue-600 border-blue-600 text-white font-bold'
+                     : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+                 }`}
+               >
+                 HKD
+               </button>
+             </div>
+
+             {/* Date and Amount Input */}
              <div className="flex gap-2">
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-1/3 p-3 bg-black rounded-xl border border-gray-800" />
-                <input type="number" placeholder="金額 (HKD)" value={amount} onChange={(e) => setAmount(e.target.value)} className="flex-1 p-3 bg-black rounded-xl border border-gray-800 font-bold" />
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="number"
+                    placeholder={currency === 'JPY' ? '金額 (JPY)' : '金額 (HKD)'}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full p-3 bg-black rounded-xl border border-gray-800 font-bold"
+                  />
+                  {currency === 'JPY' && amount && (
+                    <div className="text-xs text-gray-500 mt-1 px-1">
+                      ≈ HKD {(parseFloat(amount) * exchangeRate).toFixed(2)}
+                    </div>
+                  )}
+                </div>
              </div>
 
              <input type="text" placeholder="備註 (選填)" value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-3 bg-black rounded-xl border border-gray-800" />
@@ -393,6 +572,93 @@ function ExpensesPageContent() {
                         </button>
                     ))}
                 </div>
+
+                {/* Split Mode Toggle */}
+                {participantIds.length > 0 && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">分擔方式:</span>
+                    <button
+                      onClick={() => {
+                        setSplitMode('equal');
+                        setCustomSplits({});
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
+                        splitMode === 'equal'
+                          ? 'bg-blue-600 border-blue-600 text-white font-bold'
+                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+                      }`}
+                    >
+                      平均分擔
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSplitMode('custom');
+                        const newSplits: Record<string, string> = {};
+                        participantIds.forEach(id => {
+                          newSplits[id] = '';
+                        });
+                        setCustomSplits(newSplits);
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
+                        splitMode === 'custom'
+                          ? 'bg-blue-600 border-blue-600 text-white font-bold'
+                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+                      }`}
+                    >
+                      詳細輸入
+                    </button>
+                  </div>
+                )}
+
+                {/* Custom Split Inputs */}
+                {splitMode === 'custom' && participantIds.length > 0 && (
+                  <div className="bg-black p-3 rounded-xl border border-gray-800 space-y-2">
+                    <div className="text-xs text-gray-400 mb-2">輸入各人分擔金額 (HKD):</div>
+                    {participantIds.map(pid => {
+                      const member = data.members.find(m => m.id === pid);
+                      if (!member) return null;
+
+                      return (
+                        <div key={pid} className="flex items-center gap-2">
+                          <span className="text-sm text-gray-300 w-20">{member.name}:</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={customSplits[pid] || ''}
+                            onChange={(e) => {
+                              setCustomSplits(prev => ({
+                                ...prev,
+                                [pid]: e.target.value,
+                              }));
+                            }}
+                            className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm"
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Validation Display */}
+                    {(() => {
+                      const total = currency === 'JPY' && amount
+                        ? parseFloat(amount) * exchangeRate
+                        : parseFloat(amount) || 0;
+                      const splitTotal = Object.values(customSplits)
+                        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+                      const diff = Math.abs(total - splitTotal);
+
+                      if (total > 0 && splitTotal > 0) {
+                        return (
+                          <div className={`text-xs mt-2 ${diff <= 1 ? 'text-green-400' : 'text-red-400'}`}>
+                            已分配: ${splitTotal.toFixed(2)} / ${total.toFixed(2)}
+                            {diff > 1 && ` (差額: $${diff.toFixed(2)})`}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
              </div>
 
              <button onClick={handleAddExpense} className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors">
@@ -417,12 +683,47 @@ function ExpensesPageContent() {
                 {Object.entries(balances).map(([id, bal]) => {
                   const member = data.members.find((m) => m.id === id);
                   if (!member) return null;
+
+                  // Calculate 總墊支 (Total Paid)
+                  const totalPaid = data.expenses
+                    .filter(e => e.payerId === id)
+                    .reduce((sum, e) => sum + e.amountHKD, 0);
+
+                  // Calculate 總消費 (Total Consumed)
+                  const totalConsumed = data.expenses
+                    .filter(e => e.participants.some(p => {
+                      const memberId = typeof p === 'string' ? p : p.id;
+                      return memberId === id;
+                    }))
+                    .reduce((sum, e) => {
+                      // Find this member's participant record
+                      const participant = e.participants.find(p => {
+                        const memberId = typeof p === 'string' ? p : p.id;
+                        return memberId === id;
+                      });
+
+                      if (!participant) return sum;
+
+                      // Check if custom split exists
+                      const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
+                      const share = customAmount !== undefined
+                        ? customAmount
+                        : e.amountHKD / e.participants.length;
+
+                      return sum + share;
+                    }, 0);
+
                   return (
-                    <div key={id} className="flex justify-between items-center bg-black p-3 rounded-xl">
-                      <span className="font-medium">{member.name}</span>
-                      <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
-                        {bal > 0 ? `收 ${bal.toFixed(1)}` : bal < 0 ? `付 ${Math.abs(bal).toFixed(1)}` : "平手"}
-                      </span>
+                    <div key={id} className="bg-black p-3 rounded-xl">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium">{member.name}</span>
+                        <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
+                          {bal > 0 ? `收 ${bal.toFixed(1)}` : bal < 0 ? `付 ${Math.abs(bal).toFixed(1)}` : "平手"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        總墊支: ${totalPaid.toFixed(1)} • 總消費: ${totalConsumed.toFixed(1)}
+                      </div>
                     </div>
                   );
                 })}
@@ -485,7 +786,10 @@ function ExpensesPageContent() {
                   const allParticipants = e.participants.length === data.members.length;
                   const beneficiariesText = allParticipants
                     ? "全員"
-                    : e.participants.map(pid => data.members.find(m => m.id === pid)?.name).filter(Boolean).join(", ");
+                    : e.participants.map(p => {
+                        const memberId = typeof p === 'string' ? p : p.id;
+                        return data.members.find(m => m.id === memberId)?.name;
+                      }).filter(Boolean).join(", ");
 
                   return (
                     <div key={e.id} className="flex justify-between items-center bg-black p-3 rounded-xl">
@@ -498,6 +802,9 @@ function ExpensesPageContent() {
                           </div>
                           <div className="text-xs text-gray-500 mt-0.5">
                             {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
+                            {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
+                              <span className="ml-1 text-gray-600">(原本 {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
+                            )}
                           </div>
                         </div>
                       </div>
