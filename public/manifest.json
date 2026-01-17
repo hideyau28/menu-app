@@ -1,0 +1,25 @@
+{
+  "name": "旅程記帳 - 多人分帳工具",
+  "short_name": "旅程記帳",
+  "description": "多人旅行記帳與自動結算工具,支援多幣種換算",
+  "start_url": "/expenses",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "categories": ["finance", "travel", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

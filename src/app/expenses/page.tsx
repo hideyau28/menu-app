@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createTrip, getTripByCode, addExpense, deleteExpense } from "./actions";
+import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense } from "./actions";
+import { toast, Toaster } from 'sonner';
 
 // 定義資料類型
 type TripData = Awaited<ReturnType<typeof getTripByCode>>;
@@ -23,6 +24,35 @@ const CATEGORY_COLORS: Record<string, string> = {
   shopping: '#ec4899',  // pink
   activity: '#10b981',  // green
   other: '#6b7280',     // gray
+};
+
+const CURRENCIES = [
+  { code: 'HKD', label: 'HKD 港幣', flag: '🇭🇰' },
+  { code: 'JPY', label: 'JPY 日圓', flag: '🇯🇵' },
+  { code: 'USD', label: 'USD 美元', flag: '🇺🇸' },
+  { code: 'CNY', label: 'CNY 人民幣', flag: '🇨🇳' },
+  { code: 'EUR', label: 'EUR 歐元', flag: '🇪🇺' },
+  { code: 'GBP', label: 'GBP 英鎊', flag: '🇬🇧' },
+  { code: 'KRW', label: 'KRW 韓圜', flag: '🇰🇷' },
+  { code: 'TWD', label: 'TWD 新台幣', flag: '🇹🇼' },
+  { code: 'THB', label: 'THB 泰銖', flag: '🇹🇭' },
+  { code: 'AUD', label: 'AUD 澳元', flag: '🇦🇺' },
+  { code: 'OTHER', label: '其他幣種...', flag: '🌍' },
+] as const;
+
+const AVATAR_COLORS = [
+  '#3b82f6', // blue
+  '#10b981', // green
+  '#f59e0b', // amber
+  '#ec4899', // pink
+  '#8b5cf6', // purple
+  '#14b8a6', // teal
+  '#f97316', // orange
+  '#06b6d4', // cyan
+];
+
+const getAvatarColor = (index: number) => {
+  return AVATAR_COLORS[index % AVATAR_COLORS.length];
 };
 
 function ExpensesPageContent() {
@@ -46,21 +76,41 @@ function ExpensesPageContent() {
   const [amount, setAmount] = useState("");
   const [payerId, setPayerId] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
-  const [currency, setCurrency] = useState<'HKD' | 'JPY'>('HKD');
-  const [exchangeRate, setExchangeRate] = useState(0.053); // JPY to HKD
+  const [currency, setCurrency] = useState<string>('HKD');
+  const [customCurrency, setCustomCurrency] = useState('');
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [splitMode, setSplitMode] = useState<'equal' | 'custom'>('equal');
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
+
+  // Editing State
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
 
   // Accordion States
   const [balancesExpanded, setBalancesExpanded] = useState(false);
   const [settlementsExpanded, setSettlementsExpanded] = useState(false);
   const [recordsExpanded, setRecordsExpanded] = useState(false);
 
-  // Toast Helper
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  // Toast Helper using Sonner
   const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === "success") {
+      toast.success(msg, {
+        duration: 2000,
+        style: {
+          background: '#10b981',
+          color: 'white',
+          border: 'none',
+        },
+      });
+    } else {
+      toast.error(msg, {
+        duration: 3000,
+        style: {
+          background: '#ef4444',
+          color: 'white',
+          border: 'none',
+        },
+      });
+    }
   };
 
   // Share Link Handler
@@ -137,15 +187,26 @@ function ExpensesPageContent() {
     };
   }, [code]);
 
-  // Load exchange rate from localStorage
+  // Load exchange rates from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedRate = localStorage.getItem('saved_exchange_rate');
-      if (savedRate) {
-        setExchangeRate(parseFloat(savedRate));
+      const savedRates = localStorage.getItem('exchange_rates');
+      if (savedRates) {
+        try {
+          setExchangeRates(JSON.parse(savedRates));
+        } catch (e) {
+          console.error('Failed to parse exchange rates:', e);
+        }
       }
     }
   }, []);
+
+  // Save exchange rates to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && Object.keys(exchangeRates).length > 0) {
+      localStorage.setItem('exchange_rates', JSON.stringify(exchangeRates));
+    }
+  }, [exchangeRates]);
 
   // Reset custom splits when participants change or split mode changes
   useEffect(() => {
@@ -189,6 +250,27 @@ function ExpensesPageContent() {
     }
   };
 
+  // 輔助函數：獲取最終幣種代碼
+  const getFinalCurrency = () => {
+    if (currency === 'OTHER') {
+      return customCurrency.trim() || 'OTHER';
+    }
+    return currency;
+  };
+
+  // 輔助函數：計算 HKD 金額
+  const calculateHKD = () => {
+    if (!amount) return 0;
+    const finalCurrency = getFinalCurrency();
+
+    if (finalCurrency === 'HKD') {
+      return parseFloat(amount);
+    }
+
+    const rate = exchangeRates[finalCurrency] || 0;
+    return parseFloat(amount) * rate;
+  };
+
   // 4. 新增支出 (Add Expense)
   const handleAddExpense = async () => {
     if (!data) return;
@@ -197,10 +279,21 @@ function ExpensesPageContent() {
       return;
     }
 
+    const finalCurrency = getFinalCurrency();
     const amountValue = parseFloat(amount);
-    const amountHKD = currency === 'JPY'
-      ? amountValue * exchangeRate
-      : amountValue;
+
+    // Validate exchange rate for non-HKD currencies
+    if (finalCurrency !== 'HKD') {
+      const rate = exchangeRates[finalCurrency];
+      if (!rate || rate === 0) {
+        showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
+        return;
+      }
+    }
+
+    const amountHKD = finalCurrency === 'HKD'
+      ? amountValue
+      : amountValue * (exchangeRates[finalCurrency] || 0);
 
     // Validate custom splits
     if (splitMode === 'custom') {
@@ -231,7 +324,7 @@ function ExpensesPageContent() {
         payerId,
         participantIds,
         amountHKD,
-        originalCurrency: currency,
+        originalCurrency: finalCurrency,
         originalAmount: amountValue,
         customSplits: splitMode === 'custom' ? customSplits : undefined,
       });
@@ -239,6 +332,7 @@ function ExpensesPageContent() {
       setAmount("");
       setNote("");
       setCurrency('HKD'); // Reset to HKD
+      setCustomCurrency(''); // Clear custom currency
       setSplitMode('equal'); // Reset split mode
       setCustomSplits({}); // Clear custom splits
       // 重新全選所有參與者
@@ -262,6 +356,228 @@ function ExpensesPageContent() {
     } catch (e) {
       showToast("刪除失敗", "error");
     }
+  };
+
+  // 6. 編輯支出 (Edit Expense)
+  const handleEdit = (expense: NonNullable<typeof data>['expenses'][0]) => {
+    if (!data) return;
+    setEditingExpenseId(expense.id);
+
+    // 填入基本資訊
+    setCategory(expense.category || 'dining');
+    setDate(expense.date);
+    setNote(expense.note || '');
+
+    // 填入金額和幣種
+    const originalAmount = expense.originalAmount || expense.amountHKD;
+    const originalCurrency = expense.originalCurrency || 'HKD';
+    setAmount(originalAmount.toString());
+
+    // Check if currency is in predefined list
+    const isPredefinedCurrency = CURRENCIES.some(c => c.code === originalCurrency);
+    if (isPredefinedCurrency) {
+      setCurrency(originalCurrency);
+      setCustomCurrency('');
+    } else {
+      setCurrency('OTHER');
+      setCustomCurrency(originalCurrency);
+    }
+
+    // 填入付款人
+    setPayerId(expense.payerId);
+
+    // 解析參與者
+    const participantIdList = expense.participants.map(p =>
+      typeof p === 'string' ? p : p.id
+    );
+    setParticipantIds(participantIdList);
+
+    // 檢查是否有自訂分擔
+    const hasCustomSplits = expense.participants.some(p =>
+      typeof p === 'object' && p.customAmount !== undefined
+    );
+
+    if (hasCustomSplits) {
+      setSplitMode('custom');
+      const splits: Record<string, string> = {};
+      expense.participants.forEach(p => {
+        if (typeof p === 'object' && p.customAmount !== undefined) {
+          splits[p.id] = p.customAmount.toString();
+        }
+      });
+      setCustomSplits(splits);
+    } else {
+      setSplitMode('equal');
+      setCustomSplits({});
+    }
+
+    // 滾動到表單頂部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast("編輯模式");
+  };
+
+  // 7. 取消編輯 (Cancel Edit)
+  const handleCancelEdit = () => {
+    setEditingExpenseId(null);
+    setAmount("");
+    setNote("");
+    setCurrency('HKD');
+    setCustomCurrency(''); // Clear custom currency
+    setSplitMode('equal');
+    setCustomSplits({});
+    if (data) {
+      setParticipantIds(data.members.map(m => m.id));
+    }
+    showToast("已取消編輯");
+  };
+
+  // 8. 更新支出 (Update Expense)
+  const handleUpdateExpense = async () => {
+    if (!data || !editingExpenseId) return;
+
+    // 驗證必填欄位
+    if (!amount || !payerId || participantIds.length === 0) {
+      showToast("資料不完整", "error");
+      return;
+    }
+
+    const finalCurrency = getFinalCurrency();
+    const amountValue = parseFloat(amount);
+
+    // Validate exchange rate for non-HKD currencies
+    if (finalCurrency !== 'HKD') {
+      const rate = exchangeRates[finalCurrency];
+      if (!rate || rate === 0) {
+        showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
+        return;
+      }
+    }
+
+    const amountHKD = finalCurrency === 'HKD'
+      ? amountValue
+      : amountValue * (exchangeRates[finalCurrency] || 0);
+
+    // 驗證自訂分擔
+    if (splitMode === 'custom') {
+      const splitTotal = Object.values(customSplits)
+        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+      const diff = Math.abs(amountHKD - splitTotal);
+
+      if (diff > 1) {
+        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(2)})`, "error");
+        return;
+      }
+
+      const hasEmptySplits = participantIds.some(pid =>
+        !customSplits[pid] || parseFloat(customSplits[pid]) === 0
+      );
+      if (hasEmptySplits) {
+        showToast("請輸入所有參與者的分擔金額", "error");
+        return;
+      }
+    }
+
+    try {
+      await updateExpense({
+        code: data.code,
+        expenseId: editingExpenseId,
+        title: CATEGORIES.find((c) => c.id === category)?.label ?? "其他",
+        category,
+        note: note || undefined,
+        date,
+        payerId,
+        participantIds,
+        amountHKD,
+        originalCurrency: finalCurrency,
+        originalAmount: amountValue,
+        customSplits: splitMode === 'custom' ? customSplits : undefined,
+      });
+
+      handleCancelEdit();
+      await reloadTrip();
+      showToast("已更新記錄");
+    } catch (e) {
+      console.error(e);
+      showToast("更新失敗", "error");
+    }
+  };
+
+  // 9. 匯出 CSV (Export CSV)
+  const handleExportCSV = () => {
+    if (!data || data.expenses.length === 0) {
+      showToast("沒有記錄可匯出", "error");
+      return;
+    }
+
+    // CSV Header
+    const headers = [
+      '日期',
+      '類別',
+      '標題',
+      '付款人',
+      '金額 (HKD)',
+      '原始幣種',
+      '原始金額',
+      '分擔者',
+      '備註',
+    ];
+
+    // CSV Rows
+    const rows = data.expenses.map(e => {
+      // Build participants text
+      const allParticipants = e.participants.length === data.members.length;
+      const participantsText = allParticipants
+        ? "全員"
+        : e.participants.map(p => {
+            const memberId = typeof p === 'string' ? p : p.id;
+            const member = data.members.find(m => m.id === memberId);
+            const name = member?.name || '';
+
+            // Include custom split amount if exists
+            if (typeof p === 'object' && p.customAmount) {
+              return `${name} ($${p.customAmount.toFixed(2)})`;
+            }
+            return name;
+          }).filter(Boolean).join(', ');
+
+      return [
+        e.date,
+        e.category || '其他',
+        e.title,
+        e.payerName,
+        e.amountHKD.toFixed(2),
+        e.originalCurrency || 'HKD',
+        e.originalAmount?.toFixed(2) || e.amountHKD.toFixed(2),
+        participantsText,
+        (e.note || '').replace(/"/g, '""'), // Escape double quotes
+      ];
+    });
+
+    // Build CSV content
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row =>
+        row.map(cell => `"${cell}"`).join(',')
+      ),
+    ].join('\n');
+
+    // Add BOM for Excel UTF-8 compatibility
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], {
+      type: 'text/csv;charset=utf-8;'
+    });
+
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${data.name}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast("CSV 已匯出", "success");
   };
 
   // 計算結餘 (Balances)
@@ -412,8 +728,6 @@ function ExpensesPageContent() {
                     開始旅程
                 </button>
             </div>
-
-            {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 px-4 py-2 rounded-xl border border-gray-700 shadow-lg">{toast.msg}</div>}
         </div>
       </div>
     );
@@ -427,16 +741,35 @@ function ExpensesPageContent() {
 
   return (
     <div className="min-h-screen bg-black p-4 pt-12 text-white pb-24">
+      <Toaster
+        position="bottom-center"
+        theme="dark"
+        richColors
+        expand={false}
+      />
       <div className="max-w-md mx-auto">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">{data.name}</h1>
             <div className="flex gap-2">
-              <button onClick={handleShareLink} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors">
-                  🔗 分享連結
+              <button
+                onClick={handleExportCSV}
+                className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
+                title="匯出為 CSV 文件"
+              >
+                📊 匯出
               </button>
-              <button onClick={() => router.push('/expenses')} className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors">
-                  新旅程
+              <button
+                onClick={handleShareLink}
+                className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
+              >
+                🔗 分享
+              </button>
+              <button
+                onClick={() => router.push('/expenses')}
+                className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
+              >
+                新旅程
               </button>
             </div>
           </div>
@@ -507,70 +840,180 @@ function ExpensesPageContent() {
                 })}
              </div>
 
-             {/* Currency Toggle */}
-             <div className="flex items-center gap-2">
-               <span className="text-xs text-gray-500 whitespace-nowrap">幣別:</span>
-               <button
-                 onClick={() => setCurrency('JPY')}
-                 className={`px-3 py-1 rounded-full text-xs border transition-all ${
-                   currency === 'JPY'
-                     ? 'bg-blue-600 border-blue-600 text-white font-bold'
-                     : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                 }`}
-               >
-                 JPY
-               </button>
-               <button
-                 onClick={() => setCurrency('HKD')}
-                 className={`px-3 py-1 rounded-full text-xs border transition-all ${
-                   currency === 'HKD'
-                     ? 'bg-blue-600 border-blue-600 text-white font-bold'
-                     : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                 }`}
-               >
-                 HKD
-               </button>
+             {/* Currency Selector */}
+             <div className="space-y-2">
+               <div className="flex items-center gap-2">
+                 <span className="text-xs text-gray-500 whitespace-nowrap">幣別:</span>
+                 <select
+                   value={currency}
+                   onChange={(e) => {
+                     const newCurrency = e.target.value;
+                     setCurrency(newCurrency);
+                     if (newCurrency === 'OTHER') {
+                       setCustomCurrency('');
+                     }
+                   }}
+                   className="flex-1 px-3 py-2 bg-black rounded-xl border border-gray-800 text-sm focus:border-blue-600 focus:outline-none"
+                 >
+                   {CURRENCIES.map(c => (
+                     <option key={c.code} value={c.code}>
+                       {c.flag} {c.label}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+
+               {/* Custom Currency Input */}
+               {currency === 'OTHER' && (
+                 <input
+                   type="text"
+                   placeholder="輸入幣種代碼 (如: SGD, MYR)"
+                   value={customCurrency}
+                   onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
+                   className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600"
+                   maxLength={5}
+                 />
+               )}
+
+               {/* Exchange Rate Input (shown for non-HKD currencies) */}
+               {((currency !== 'HKD' && currency !== 'OTHER') ||
+                 (currency === 'OTHER' && customCurrency.trim())) && (
+                 <div className="flex items-center gap-2 bg-black px-3 py-2 rounded-xl border border-gray-800">
+                   <span className="text-xs text-gray-400 whitespace-nowrap">
+                     匯率 ({getFinalCurrency()} → HKD):
+                   </span>
+                   <input
+                     type="number"
+                     step="0.0001"
+                     placeholder="0.0000"
+                     value={exchangeRates[getFinalCurrency()] || ''}
+                     onChange={(e) => {
+                       const code = getFinalCurrency();
+                       setExchangeRates(prev => ({
+                         ...prev,
+                         [code]: parseFloat(e.target.value) || 0,
+                       }));
+                     }}
+                     className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
+                   />
+                 </div>
+               )}
              </div>
 
              {/* Date and Amount Input */}
              <div className="flex gap-2">
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-1/3 p-3 bg-black rounded-xl border border-gray-800" />
-                <div className="flex-1 min-w-0">
-                  <input
-                    type="number"
-                    placeholder={currency === 'JPY' ? '金額 (JPY)' : '金額 (HKD)'}
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full p-3 bg-black rounded-xl border border-gray-800 font-bold"
-                  />
-                  {currency === 'JPY' && amount && (
-                    <div className="text-xs text-gray-500 mt-1 px-1">
-                      ≈ HKD {(parseFloat(amount) * exchangeRate).toFixed(2)}
-                    </div>
-                  )}
-                </div>
+               <input
+                 type="date"
+                 value={date}
+                 onChange={(e) => setDate(e.target.value)}
+                 className="w-1/3 p-3 h-12 bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none"
+               />
+               <div className="flex-1 min-w-0">
+                 <input
+                   type="number"
+                   step="0.01"
+                   placeholder={`金額 (${getFinalCurrency()})`}
+                   value={amount}
+                   onChange={(e) => setAmount(e.target.value)}
+                   className="w-full p-3 h-12 bg-black rounded-xl border border-gray-800 font-bold focus:border-blue-600 focus:outline-none"
+                 />
+                 {getFinalCurrency() !== 'HKD' && amount && calculateHKD() > 0 && (
+                   <div className="text-xs text-gray-500 mt-1 px-1">
+                     ≈ HKD {calculateHKD().toFixed(2)}
+                   </div>
+                 )}
+               </div>
              </div>
 
-             <input type="text" placeholder="備註 (選填)" value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-3 bg-black rounded-xl border border-gray-800" />
+             {/* Note Input */}
+             <input
+               type="text"
+               placeholder="備註 (選填)"
+               value={note}
+               onChange={(e) => setNote(e.target.value)}
+               className="w-full p-3 h-12 bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none"
+             />
 
              <div className="space-y-3">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">誰付錢:</span>
-                    {data.members.map(m => (
-                        <button key={m.id} onClick={() => setPayerId(m.id)}
-                            className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap ${payerId === m.id ? "bg-blue-600 border-blue-600 text-white" : "border-gray-700 text-gray-400"}`}>
-                            {m.name}
-                        </button>
+                {/* 誰付錢 - Avatar Style */}
+                <div className="space-y-2">
+                  <span className="text-xs text-gray-500">誰付錢:</span>
+                  <div className="flex gap-3 overflow-x-auto pb-1">
+                    {data.members.map((m, idx) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setPayerId(m.id)}
+                        className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                          payerId === m.id
+                            ? 'border-white scale-110 shadow-lg shadow-blue-500/50'
+                            : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
+                        }`}
+                        style={{
+                          backgroundColor: getAvatarColor(idx),
+                        }}
+                        title={m.name}
+                      >
+                        {m.name.charAt(0).toUpperCase()}
+                        {payerId === m.id && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center text-xs">
+                            ✓
+                          </div>
+                        )}
+                      </button>
                     ))}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">誰分擔:</span>
-                    {data.members.map(m => (
-                        <button key={m.id} onClick={() => setParticipantIds(prev => prev.includes(m.id) ? prev.filter(p => p !== m.id) : [...prev, m.id])}
-                            className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap ${participantIds.includes(m.id) ? "bg-blue-600 border-blue-600 text-white" : "border-gray-700 text-gray-400"}`}>
-                            {m.name}
+
+                {/* 誰分擔 - Avatar Style with 全選/全不選 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">誰分擔:</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setParticipantIds(data.members.map(m => m.id))}
+                        className="text-xs px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
+                      >
+                        全選
+                      </button>
+                      <button
+                        onClick={() => setParticipantIds([])}
+                        className="text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                      >
+                        全不選
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto pb-1">
+                    {data.members.map((m, idx) => {
+                      const isSelected = participantIds.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => setParticipantIds(prev =>
+                            prev.includes(m.id)
+                              ? prev.filter(p => p !== m.id)
+                              : [...prev, m.id]
+                          )}
+                          className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                            isSelected
+                              ? 'border-blue-500 opacity-100 scale-100'
+                              : 'border-gray-700 opacity-30 hover:opacity-60'
+                          }`}
+                          style={{
+                            backgroundColor: getAvatarColor(idx),
+                          }}
+                          title={m.name}
+                        >
+                          {m.name.charAt(0).toUpperCase()}
+                          {isSelected && (
+                            <div className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
+                              ✓
+                            </div>
+                          )}
                         </button>
-                    ))}
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Split Mode Toggle */}
@@ -640,9 +1083,7 @@ function ExpensesPageContent() {
 
                     {/* Validation Display */}
                     {(() => {
-                      const total = currency === 'JPY' && amount
-                        ? parseFloat(amount) * exchangeRate
-                        : parseFloat(amount) || 0;
+                      const total = calculateHKD();
                       const splitTotal = Object.values(customSplits)
                         .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
                       const diff = Math.abs(total - splitTotal);
@@ -661,9 +1102,26 @@ function ExpensesPageContent() {
                 )}
              </div>
 
-             <button onClick={handleAddExpense} className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors">
-                新增記錄
-             </button>
+             {editingExpenseId ? (
+               <div className="flex gap-2">
+                 <button
+                   onClick={handleCancelEdit}
+                   className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors"
+                 >
+                   取消
+                 </button>
+                 <button
+                   onClick={handleUpdateExpense}
+                   className="flex-1 py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors"
+                 >
+                   ✓ 更新記錄
+                 </button>
+               </div>
+             ) : (
+               <button onClick={handleAddExpense} className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors">
+                 新增記錄
+               </button>
+             )}
           </div>
 
           {/* Balances Section */}
@@ -806,13 +1264,29 @@ function ExpensesPageContent() {
                               <span className="ml-1 text-gray-600">(原本 {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
                             )}
                           </div>
+                          {e.note && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              <span className="opacity-70">📝</span> {e.note}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
-                        <button onClick={() => handleDelete(e.id)} className="text-xs text-red-500 mt-1 px-2 py-1 bg-red-500/10 rounded-lg">
-                          刪除
-                        </button>
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={() => handleEdit(e)}
+                            className="text-xs text-blue-500 px-2 py-1 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors"
+                          >
+                            ✏️ 修改
+                          </button>
+                          <button
+                            onClick={() => handleDelete(e.id)}
+                            className="text-xs text-red-500 px-2 py-1 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
+                          >
+                            刪除
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -821,8 +1295,6 @@ function ExpensesPageContent() {
             )}
           </div>
       </div>
-
-      {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 px-4 py-2 rounded-xl border border-gray-700 shadow-lg z-50">{toast.msg}</div>}
     </div>
   );
 }

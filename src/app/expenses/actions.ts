@@ -263,3 +263,101 @@ export async function deleteExpense(code: string, expenseId: string) {
   ]);
   revalidatePath('/expenses');
 }
+
+export async function updateExpense(payload: {
+  code: string;
+  expenseId: string;
+  title: string;
+  category?: string;
+  note?: string;
+  date: string;
+  payerId: string;
+  participantIds: string[];
+  amountHKD: number;
+  originalCurrency?: string;
+  originalAmount?: number;
+  customSplits?: Record<string, string>;
+}) {
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+
+    // 1. 驗證 trip 存在
+    const tripResult = await client.query<{ id: string }>(
+      "SELECT id FROM trips WHERE trip_code = $1",
+      [payload.code]
+    );
+    if (tripResult.rows.length === 0) {
+      throw new Error("Trip not found");
+    }
+    const tripId = tripResult.rows[0].id;
+
+    // 2. 驗證 expense 屬於此 trip
+    const expenseCheck = await client.query(
+      "SELECT id FROM expenses WHERE id = $1 AND trip_id = $2",
+      [payload.expenseId, tripId]
+    );
+    if (expenseCheck.rows.length === 0) {
+      throw new Error("Expense not found or does not belong to this trip");
+    }
+
+    // 3. 更新 expenses 表
+    const cents = Math.round(payload.amountHKD * 100);
+    const originalCents = payload.originalAmount
+      ? Math.round(payload.originalAmount * 100)
+      : cents;
+    const currency = payload.originalCurrency || 'HKD';
+
+    await client.query(
+      `UPDATE expenses
+       SET title = $1,
+           category = $2,
+           note = $3,
+           payer_member_id = $4,
+           total_amount_hkd_cents = $5,
+           date = $6,
+           original_currency = $7,
+           original_amount_cents = $8,
+           updated_at = NOW()
+       WHERE id = $9`,
+      [
+        payload.title,
+        payload.category ?? null,
+        payload.note ?? null,
+        payload.payerId,
+        cents,
+        payload.date,
+        currency,
+        originalCents,
+        payload.expenseId,
+      ]
+    );
+
+    // 4. 刪除舊的參與者記錄
+    await client.query(
+      "DELETE FROM expense_participants WHERE expense_id = $1",
+      [payload.expenseId]
+    );
+
+    // 5. 插入新的參與者記錄
+    for (const memberId of payload.participantIds) {
+      const customAmount = payload.customSplits?.[memberId];
+      const amountCents = customAmount
+        ? Math.round(parseFloat(customAmount) * 100)
+        : null; // null 表示平均分擔
+
+      await client.query(
+        "INSERT INTO expense_participants (expense_id, member_id, amount_cents) VALUES ($1, $2, $3)",
+        [payload.expenseId, memberId, amountCents]
+      );
+    }
+
+    await client.query("COMMIT");
+    revalidatePath('/expenses');
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
