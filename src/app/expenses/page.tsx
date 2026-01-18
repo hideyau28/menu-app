@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense } from "./actions";
 import { toast, Toaster } from 'sonner';
+import * as XLSX from 'xlsx';
 
 // 定義資料類型
 type TripData = Awaited<ReturnType<typeof getTripByCode>>;
@@ -555,82 +556,122 @@ function ExpensesPageContent() {
     }
   };
 
-  // 10. 匯出 CSV (Export CSV)
-  const handleExportCSV = () => {
+  // 10. 匯出 Excel (Export Excel with 3 Sheets)
+  const handleExportExcel = () => {
     if (!data || data.expenses.length === 0) {
       showToast("沒有記錄可匯出", "error");
       return;
     }
 
-    // CSV Header
-    const headers = [
-      '日期',
-      '類別',
-      '標題',
-      '付款人',
-      '金額 (HKD)',
-      '原始幣種',
-      '原始金額',
-      '分擔者',
-      '備註',
-    ];
-
-    // CSV Rows
-    const rows = data.expenses.map(e => {
-      // Build participants text
-      const allParticipants = e.participants.length === data.members.length;
-      const participantsText = allParticipants
-        ? "全員"
-        : e.participants.map(p => {
-            const memberId = typeof p === 'string' ? p : p.id;
-            const member = data.members.find(m => m.id === memberId);
-            const name = member?.name || '';
-
-            // Include custom split amount if exists
-            if (typeof p === 'object' && p.customAmount) {
-              return `${name} ($${p.customAmount.toFixed(2)})`;
-            }
-            return name;
-          }).filter(Boolean).join(', ');
-
-      return [
-        e.date,
-        e.category || '其他',
-        e.title,
-        e.payerName,
-        e.amountHKD.toFixed(2),
-        e.originalCurrency || 'HKD',
-        e.originalAmount?.toFixed(2) || e.amountHKD.toFixed(2),
-        participantsText,
-        (e.note || '').replace(/"/g, '""'), // Escape double quotes
+    try {
+      // Sheet 1: 交易紀錄 (Transactions)
+      const transactionHeaders = [
+        '日期',
+        '種類',
+        '備註',
+        '貨幣',
+        '原幣金額',
+        '折算港幣(HKD)',
+        '付款人',
+        ...data.members.map(m => m.name), // Dynamic member columns
       ];
-    });
 
-    // Build CSV content
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row =>
-        row.map(cell => `"${cell}"`).join(',')
-      ),
-    ].join('\n');
+      const transactionRows = data.expenses.map(e => {
+        const row: any[] = [
+          e.date,
+          CATEGORIES.find(c => c.id === e.category)?.label || '其他',
+          e.note || '',
+          e.originalCurrency || 'HKD',
+          e.originalAmount || e.amountHKD,
+          e.amountHKD,
+          e.payerName,
+        ];
 
-    // Add BOM for Excel UTF-8 compatibility
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], {
-      type: 'text/csv;charset=utf-8;'
-    });
+        // Add split amounts for each member
+        data.members.forEach(member => {
+          const participant = e.participants.find(p => {
+            const memberId = typeof p === 'string' ? p : p.id;
+            return memberId === member.id;
+          });
 
-    // Create download link
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${data.name}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+          if (participant) {
+            // Check if custom split exists
+            const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
+            const share = customAmount !== undefined
+              ? customAmount
+              : e.amountHKD / e.participants.length;
+            row.push(share);
+          } else {
+            row.push(0);
+          }
+        });
 
-    showToast("CSV 已匯出", "success");
+        return row;
+      });
+
+      const ws1 = XLSX.utils.aoa_to_sheet([transactionHeaders, ...transactionRows]);
+
+      // Sheet 2: 結餘狀況 (Balances)
+      const balanceHeaders = ['姓名', '代墊金額 (Paid)', '消費金額 (Share)', '淨結餘 (Balance)'];
+      const balanceRows = data.members.map(member => {
+        // Calculate total paid
+        const totalPaid = data.expenses
+          .filter(e => e.payerId === member.id)
+          .reduce((sum, e) => sum + e.amountHKD, 0);
+
+        // Calculate total share
+        const totalShare = data.expenses
+          .filter(e => e.participants.some(p => {
+            const memberId = typeof p === 'string' ? p : p.id;
+            return memberId === member.id;
+          }))
+          .reduce((sum, e) => {
+            const participant = e.participants.find(p => {
+              const memberId = typeof p === 'string' ? p : p.id;
+              return memberId === member.id;
+            });
+
+            if (!participant) return sum;
+
+            const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
+            const share = customAmount !== undefined
+              ? customAmount
+              : e.amountHKD / e.participants.length;
+
+            return sum + share;
+          }, 0);
+
+        const balance = totalPaid - totalShare;
+
+        return [member.name, totalPaid, totalShare, balance];
+      });
+
+      const ws2 = XLSX.utils.aoa_to_sheet([balanceHeaders, ...balanceRows]);
+
+      // Sheet 3: 建議還款 (Repayments)
+      const repaymentHeaders = ['付款人 (From)', '收款人 (To)', '金額 (HKD)'];
+      const repaymentRows = settlements.map(s => [s.from, s.to, s.amount]);
+
+      const ws3 = XLSX.utils.aoa_to_sheet([repaymentHeaders, ...repaymentRows]);
+
+      // Create workbook and add sheets
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws1, '交易紀錄');
+      XLSX.utils.book_append_sheet(wb, ws2, '結餘狀況');
+      XLSX.utils.book_append_sheet(wb, ws3, '建議還款');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `${data.name}_Report_${timestamp}.xlsx`;
+
+      // Write file
+      XLSX.writeFile(wb, filename);
+
+      showToast("Excel 已匯出", "success");
+    } catch (error) {
+      console.error('Export error:', error);
+      showToast("匯出失敗", "error");
+    }
   };
 
   // 計算結餘 (Balances)
@@ -866,12 +907,12 @@ function ExpensesPageContent() {
                 <span className="text-[10px]">收藏</span>
               </button>
               <button
-                onClick={handleExportCSV}
+                onClick={handleExportExcel}
                 className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
-                title="匯出為 CSV 文件"
+                title="匯出為 Excel 文件"
               >
                 <span className="text-xl mb-1">📊</span>
-                <span className="text-[10px]">匯出</span>
+                <span className="text-[10px]">Excel</span>
               </button>
               <button
                 onClick={handleShareLink}
