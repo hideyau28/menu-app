@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense } from "./actions";
 import { toast, Toaster } from 'sonner';
 import * as XLSX from 'xlsx';
+import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 // 定義資料類型
 type TripData = Awaited<ReturnType<typeof getTripByCode>>;
@@ -900,41 +901,38 @@ function ExpensesPageContent() {
             <div className="grid grid-cols-5 gap-2 mb-4">
               <button
                 onClick={() => setShowFavoritesModal(true)}
-                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
                 title="如何收藏此 App"
               >
-                <span className="text-xl mb-1">⭐</span>
-                <span className="text-[10px]">收藏</span>
+                <Star className="w-6 h-6" />
               </button>
               <button
                 onClick={handleExportExcel}
-                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
                 title="匯出為 Excel 文件"
               >
-                <span className="text-xl mb-1">📊</span>
-                <span className="text-[10px]">Excel</span>
+                <FileSpreadsheet className="w-6 h-6" />
               </button>
               <button
                 onClick={handleShareLink}
-                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                title="分享連結"
               >
-                <span className="text-xl mb-1">🔗</span>
-                <span className="text-[10px]">分享</span>
+                <Share2 className="w-6 h-6" />
               </button>
               <button
                 onClick={() => router.push('/expenses')}
-                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                title="建立新旅程"
               >
-                <span className="text-xl mb-1">➕</span>
-                <span className="text-[10px]">新旅程</span>
+                <FolderPlus className="w-6 h-6" />
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
                 title="重新整理頁面"
               >
-                <span className="text-xl mb-1">🔄</span>
-                <span className="text-[10px]">刷新</span>
+                <RotateCw className="w-6 h-6" />
               </button>
             </div>
             {/* Title */}
@@ -1045,99 +1043,103 @@ function ExpensesPageContent() {
                 })}
              </div>
 
-             {/* Currency Selector */}
-             <div className="space-y-2">
-               <div className="flex items-center gap-2">
-                 <span className="text-xs text-gray-500 whitespace-nowrap">幣別:</span>
-                 <select
-                   value={currency}
-                   onChange={(e) => {
-                     const newCurrency = e.target.value;
-                     setCurrency(newCurrency);
-                     if (newCurrency === 'OTHER') {
-                       setCustomCurrency('');
-                     }
-                   }}
-                   className="flex-1 px-3 py-2 bg-black rounded-xl border border-gray-800 text-sm focus:border-blue-600 focus:outline-none"
-                 >
-                   {CURRENCIES.map(c => (
-                     <option key={c.code} value={c.code}>
-                       {c.flag} {c.label}
-                     </option>
-                   ))}
-                 </select>
-               </div>
-
-               {/* Custom Currency Input */}
-               {currency === 'OTHER' && (
-                 <input
-                   type="text"
-                   placeholder="輸入幣種代碼 (如: SGD, MYR)"
-                   value={customCurrency}
-                   onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
-                   className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600"
-                   maxLength={5}
-                 />
-               )}
-
-               {/* Exchange Rate Input (shown for non-HKD currencies) */}
-               {((currency !== 'HKD' && currency !== 'OTHER') ||
-                 (currency === 'OTHER' && customCurrency.trim())) && (
-                 <div className="flex items-center gap-2 bg-black px-3 py-2 rounded-xl border border-gray-800">
-                   <span className="text-xs text-gray-400 whitespace-nowrap">
-                     匯率 ({getFinalCurrency()} → HKD):
-                   </span>
-                   <input
-                     type="number"
-                     step="0.000001"
-                     placeholder="0.000000"
-                     value={exchangeRates[getFinalCurrency()] || ''}
-                     onChange={(e) => {
-                       const code = getFinalCurrency();
-                       setExchangeRates(prev => ({
-                         ...prev,
-                         [code]: e.target.value, // Store as string directly
-                       }));
-                     }}
-                     className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
-                   />
-                 </div>
-               )}
-             </div>
-
-             {/* Date and Amount Input */}
+             {/* 2x2 Input Grid */}
              <div className="grid grid-cols-2 gap-3">
+               {/* Currency Selector Button */}
+               <select
+                 value={currency}
+                 onChange={(e) => {
+                   const newCurrency = e.target.value;
+                   setCurrency(newCurrency);
+                   if (newCurrency === 'OTHER') {
+                     setCustomCurrency('');
+                   }
+                 }}
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center font-medium"
+                 style={{
+                   backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                   backgroundPosition: 'right 0.5rem center',
+                   backgroundRepeat: 'no-repeat',
+                   backgroundSize: '1.5em 1.5em',
+                 }}
+               >
+                 {CURRENCIES.map(c => (
+                   <option key={c.code} value={c.code}>
+                     {c.flag} {c.label}
+                   </option>
+                 ))}
+               </select>
+
+               {/* Amount Input */}
+               <input
+                 type="number"
+                 step="0.01"
+                 placeholder={`金額 (${getFinalCurrency()})`}
+                 value={amount}
+                 onChange={(e) => setAmount(e.target.value)}
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 font-bold focus:border-blue-600 focus:outline-none appearance-none"
+               />
+
+               {/* Date Picker */}
                <input
                  type="date"
                  value={date}
                  onChange={(e) => setDate(e.target.value)}
-                 className="w-full p-3 h-[50px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none"
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none"
                />
-               <div className="w-full">
-                 <input
-                   type="number"
-                   step="0.01"
-                   placeholder={`金額 (${getFinalCurrency()})`}
-                   value={amount}
-                   onChange={(e) => setAmount(e.target.value)}
-                   className="w-full p-3 h-[50px] bg-black rounded-xl border border-gray-800 font-bold focus:border-blue-600 focus:outline-none appearance-none"
-                 />
-                 {getFinalCurrency() !== 'HKD' && amount && calculateHKD() > 0 && (
-                   <div className="text-xs text-gray-500 mt-1 px-1">
-                     ≈ HKD {calculateHKD().toFixed(2)}
-                   </div>
-                 )}
-               </div>
+
+               {/* Notes Input */}
+               <input
+                 type="text"
+                 placeholder="備註 (選填)"
+                 value={note}
+                 onChange={(e) => setNote(e.target.value)}
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none"
+               />
              </div>
 
-             {/* Note Input */}
-             <input
-               type="text"
-               placeholder="備註 (選填)"
-               value={note}
-               onChange={(e) => setNote(e.target.value)}
-               className="w-full p-3 h-12 bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none"
-             />
+             {/* Custom Currency Input */}
+             {currency === 'OTHER' && (
+               <input
+                 type="text"
+                 placeholder="輸入幣種代碼 (如: SGD, MYR)"
+                 value={customCurrency}
+                 onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
+                 className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600"
+                 maxLength={5}
+               />
+             )}
+
+             {/* Exchange Rate Input (shown for non-HKD currencies) */}
+             {((currency !== 'HKD' && currency !== 'OTHER') ||
+               (currency === 'OTHER' && customCurrency.trim())) && (
+               <div className="flex items-center gap-2 bg-black px-3 py-2 rounded-xl border border-gray-800">
+                 <span className="text-xs text-gray-400 whitespace-nowrap">
+                   匯率 ({getFinalCurrency()} → HKD):
+                 </span>
+                 <input
+                   type="number"
+                   step="0.000001"
+                   placeholder="0.000000"
+                   value={exchangeRates[getFinalCurrency()] || ''}
+                   onChange={(e) => {
+                     const code = getFinalCurrency();
+                     setExchangeRates(prev => ({
+                       ...prev,
+                       [code]: e.target.value,
+                     }));
+                   }}
+                   className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
+                 />
+               </div>
+             )}
+
+             {/* HKD Conversion Display */}
+             {getFinalCurrency() !== 'HKD' && amount && calculateHKD() > 0 && (
+               <div className="text-xs text-gray-400 text-center">
+                 ≈ HKD {calculateHKD().toFixed(2)}
+               </div>
+             )}
 
              <div className="space-y-3">
                 {/* 誰付錢 - Avatar Style */}
@@ -1478,9 +1480,9 @@ function ExpensesPageContent() {
                         </div>
                         <div className="text-right flex items-center gap-3">
                           <div className="font-bold text-white">HKD ${dateGroup.total.toFixed(2)}</div>
-                          <div className={`text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                            ▼
-                          </div>
+                          <ChevronDown
+                            className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          />
                         </div>
                       </button>
 

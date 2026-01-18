@@ -1,3 +1,4 @@
+// Force Deploy Trigger: 2026-01-18 Update UI Layout - Icon-Only Header & 2x2 Grid
 import type { NextConfig } from "next";
 // @ts-ignore - next-pwa doesn't have TypeScript definitions
 import withPWA from 'next-pwa';
