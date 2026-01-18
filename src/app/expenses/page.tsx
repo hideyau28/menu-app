@@ -784,12 +784,18 @@ function ExpensesPageContent() {
   if (code && !data) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center px-4">
             <div className="mb-4 text-4xl">❌</div>
             <div className="text-xl mb-2">找不到旅程</div>
             <div className="text-sm text-gray-400 mb-6">代碼: {code}</div>
-            <button onClick={() => router.push('/expenses')} className="px-6 py-3 bg-blue-600 rounded-xl">
+            <button onClick={() => router.push('/expenses')} className="px-6 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors">
                 建立新旅程
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-6 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 transition-colors block w-full max-w-xs mx-auto"
+            >
+                🔄 重新整理頁面
             </button>
         </div>
       </div>
@@ -857,7 +863,7 @@ function ExpensesPageContent() {
           {/* Header */}
           <div className="mb-6">
             {/* Action Buttons Grid */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-5 gap-2 mb-4">
               <button
                 onClick={() => setShowFavoritesModal(true)}
                 className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
@@ -887,6 +893,14 @@ function ExpensesPageContent() {
               >
                 <span className="text-xl mb-1">➕</span>
                 <span className="text-xs">新旅程</span>
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+                title="重新整理頁面"
+              >
+                <span className="text-xl mb-1">🔄</span>
+                <span className="text-xs">刷新</span>
               </button>
             </div>
             {/* Title */}
