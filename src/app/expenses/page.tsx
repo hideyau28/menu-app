@@ -1055,7 +1055,7 @@ function ExpensesPageContent() {
                      setCustomCurrency('');
                    }
                  }}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium placeholder-gray-400 flex items-center"
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
                  style={{
                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                    backgroundPosition: 'right 0.5rem center',
@@ -1077,7 +1077,7 @@ function ExpensesPageContent() {
                  placeholder={`金額 (${getFinalCurrency()})`}
                  value={amount}
                  onChange={(e) => setAmount(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium placeholder-gray-400"
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
                />
 
                {/* Date Picker */}
@@ -1085,7 +1085,7 @@ function ExpensesPageContent() {
                  type="date"
                  value={date}
                  onChange={(e) => setDate(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium placeholder-gray-400"
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
                />
 
                {/* Notes Input */}
@@ -1094,7 +1094,7 @@ function ExpensesPageContent() {
                  placeholder="備註 (選填)"
                  value={note}
                  onChange={(e) => setNote(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium placeholder-gray-400"
+                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
                />
              </div>
 
@@ -1464,24 +1464,30 @@ function ExpensesPageContent() {
                 {expensesByDate.map((dateGroup) => {
                   const isExpanded = expandedDate === dateGroup.date;
 
+                  // Toggle handler for this specific date
+                  const handleToggle = () => {
+                    setExpandedDate(prev => prev === dateGroup.date ? null : dateGroup.date);
+                  };
+
                   return (
                     <div key={dateGroup.date} className="border border-gray-800 rounded-xl overflow-hidden">
-                      {/* Date Header Card */}
+                      {/* Date Header Card - Native Button for iOS Safari Compatibility */}
                       <button
-                        onClick={() => toggleDateExpansion(dateGroup.date)}
-                        className="w-full p-4 bg-black hover:bg-gray-900 transition-colors flex justify-between items-center cursor-pointer"
+                        type="button"
+                        onClick={handleToggle}
+                        className="w-full p-4 bg-black hover:bg-gray-900 transition-colors flex justify-between items-center"
                       >
-                        <div className="flex items-center gap-3 pointer-events-none">
+                        <div className="flex items-center gap-3">
                           <div className="text-2xl">{isExpanded ? "📅" : "📆"}</div>
                           <div className="text-left">
                             <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
                             <div className="text-xs text-gray-400">{dateGroup.expenses.length} 筆記錄</div>
                           </div>
                         </div>
-                        <div className="text-right flex items-center gap-3 pointer-events-none">
+                        <div className="text-right flex items-center gap-3">
                           <div className="font-bold text-white">HKD ${dateGroup.total.toFixed(2)}</div>
                           <ChevronDown
-                            className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                           />
                         </div>
                       </button>
