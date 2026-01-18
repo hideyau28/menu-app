@@ -59,15 +59,16 @@ const getAvatarColor = (index: number) => {
 const getAvatarText = (name: string) => {
   if (!name) return '?';
 
-  // Check if the name contains Chinese characters
-  const hasChinese = /[\u4e00-\u9fff]/.test(name);
+  // Check if the first character is ASCII (English/Latin)
+  const firstChar = name.charAt(0);
+  const isAscii = firstChar.charCodeAt(0) < 128;
 
-  if (hasChinese) {
-    // For Chinese names, take the first character
-    return name.charAt(0);
+  if (isAscii) {
+    // For ASCII/English names, take the first 2 letters and uppercase
+    return name.slice(0, 2).toUpperCase();
   } else {
-    // For English names, take the first 2 letters and uppercase
-    return name.substring(0, 2).toUpperCase();
+    // For Chinese/other names, take the first character
+    return name.slice(0, 1);
   }
 };
 
@@ -109,8 +110,8 @@ function ExpensesPageContent() {
   // Modal States
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
 
-  // Date Grouping State
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  // Date Grouping State - Only one date can be expanded at a time
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
   // Toast Helper using Sonner
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -740,22 +741,14 @@ function ExpensesPageContent() {
 
   // Auto-expand the most recent date on initial load
   useEffect(() => {
-    if (expensesByDate.length > 0 && expandedDates.size === 0) {
-      setExpandedDates(new Set([expensesByDate[0].date]));
+    if (expensesByDate.length > 0 && expandedDate === null) {
+      setExpandedDate(expensesByDate[0].date);
     }
-  }, [expensesByDate, expandedDates.size]);
+  }, [expensesByDate, expandedDate]);
 
-  // Toggle date expansion
+  // Toggle date expansion - only one date can be expanded at a time
   const toggleDateExpansion = (date: string) => {
-    setExpandedDates(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(date)) {
-        newSet.delete(date);
-      } else {
-        newSet.add(date);
-      }
-      return newSet;
-    });
+    setExpandedDate(prev => prev === date ? null : date);
   };
 
   // Format date for display
@@ -793,7 +786,7 @@ function ExpensesPageContent() {
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-6 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 transition-colors block w-full max-w-xs mx-auto"
+              className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-full hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
             >
                 🔄 重新整理頁面
             </button>
@@ -866,41 +859,41 @@ function ExpensesPageContent() {
             <div className="grid grid-cols-5 gap-2 mb-4">
               <button
                 onClick={() => setShowFavoritesModal(true)}
-                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
                 title="如何收藏此 App"
               >
                 <span className="text-xl mb-1">⭐</span>
-                <span className="text-xs">收藏</span>
+                <span className="text-[10px]">收藏</span>
               </button>
               <button
                 onClick={handleExportCSV}
-                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
                 title="匯出為 CSV 文件"
               >
                 <span className="text-xl mb-1">📊</span>
-                <span className="text-xs">匯出</span>
+                <span className="text-[10px]">匯出</span>
               </button>
               <button
                 onClick={handleShareLink}
-                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
               >
                 <span className="text-xl mb-1">🔗</span>
-                <span className="text-xs">分享</span>
+                <span className="text-[10px]">分享</span>
               </button>
               <button
                 onClick={() => router.push('/expenses')}
-                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
               >
                 <span className="text-xl mb-1">➕</span>
-                <span className="text-xs">新旅程</span>
+                <span className="text-[10px]">新旅程</span>
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex flex-col items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
                 title="重新整理頁面"
               >
                 <span className="text-xl mb-1">🔄</span>
-                <span className="text-xs">刷新</span>
+                <span className="text-[10px]">刷新</span>
               </button>
             </div>
             {/* Title */}
@@ -1077,7 +1070,7 @@ function ExpensesPageContent() {
                  type="date"
                  value={date}
                  onChange={(e) => setDate(e.target.value)}
-                 className="w-1/3 p-3 h-12 bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none"
+                 className="w-1/3 p-3 h-[50px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none"
                />
                <div className="flex-1 min-w-0">
                  <input
@@ -1086,7 +1079,7 @@ function ExpensesPageContent() {
                    placeholder={`金額 (${getFinalCurrency()})`}
                    value={amount}
                    onChange={(e) => setAmount(e.target.value)}
-                   className="w-full p-3 h-12 bg-black rounded-xl border border-gray-800 font-bold focus:border-blue-600 focus:outline-none"
+                   className="w-full p-3 h-[50px] bg-black rounded-xl border border-gray-800 font-bold focus:border-blue-600 focus:outline-none appearance-none"
                  />
                  {getFinalCurrency() !== 'HKD' && amount && calculateHKD() > 0 && (
                    <div className="text-xs text-gray-500 mt-1 px-1">
@@ -1109,7 +1102,7 @@ function ExpensesPageContent() {
                 {/* 誰付錢 - Avatar Style */}
                 <div className="space-y-2">
                   <span className="text-xs text-gray-500">誰付錢:</span>
-                  <div className="flex gap-3 overflow-x-auto pb-1">
+                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide pb-2">
                     {data.members.map((m, idx) => (
                       <button
                         key={m.id}
@@ -1154,7 +1147,7 @@ function ExpensesPageContent() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex gap-3 overflow-x-auto pb-1">
+                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide pb-2">
                     {data.members.map((m, idx) => {
                       const isSelected = participantIds.includes(m.id);
                       return (
@@ -1415,7 +1408,7 @@ function ExpensesPageContent() {
               {/* Date Cards */}
               <div className="space-y-3">
                 {expensesByDate.map((dateGroup) => {
-                  const isExpanded = expandedDates.has(dateGroup.date);
+                  const isExpanded = expandedDate === dateGroup.date;
 
                   return (
                     <div key={dateGroup.date} className="border border-gray-800 rounded-xl overflow-hidden">
