@@ -94,7 +94,7 @@ function ExpensesPageContent() {
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [currency, setCurrency] = useState<string>('HKD');
   const [customCurrency, setCustomCurrency] = useState('');
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
+  const [exchangeRates, setExchangeRates] = useState<Record<string, string>>({});
   const [splitMode, setSplitMode] = useState<'equal' | 'custom'>('equal');
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
 
@@ -289,7 +289,7 @@ function ExpensesPageContent() {
       return parseFloat(amount);
     }
 
-    const rate = exchangeRates[finalCurrency] || 0;
+    const rate = parseFloat(exchangeRates[finalCurrency] || '0');
     return parseFloat(amount) * rate;
   };
 
@@ -306,7 +306,7 @@ function ExpensesPageContent() {
 
     // Validate exchange rate for non-HKD currencies
     if (finalCurrency !== 'HKD') {
-      const rate = exchangeRates[finalCurrency];
+      const rate = parseFloat(exchangeRates[finalCurrency] || '0');
       if (!rate || rate === 0) {
         showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
         return;
@@ -315,7 +315,7 @@ function ExpensesPageContent() {
 
     const amountHKD = finalCurrency === 'HKD'
       ? amountValue
-      : amountValue * (exchangeRates[finalCurrency] || 0);
+      : amountValue * parseFloat(exchangeRates[finalCurrency] || '0');
 
     // Validate custom splits
     if (splitMode === 'custom') {
@@ -468,7 +468,7 @@ function ExpensesPageContent() {
 
     // Validate exchange rate for non-HKD currencies
     if (finalCurrency !== 'HKD') {
-      const rate = exchangeRates[finalCurrency];
+      const rate = parseFloat(exchangeRates[finalCurrency] || '0');
       if (!rate || rate === 0) {
         showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
         return;
@@ -477,7 +477,7 @@ function ExpensesPageContent() {
 
     const amountHKD = finalCurrency === 'HKD'
       ? amountValue
-      : amountValue * (exchangeRates[finalCurrency] || 0);
+      : amountValue * parseFloat(exchangeRates[finalCurrency] || '0');
 
     // 驗證自訂分擔
     if (splitMode === 'custom') {
@@ -846,7 +846,7 @@ function ExpensesPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-4 pt-12 text-white pb-24">
+    <div className="min-h-[101vh] bg-black p-4 pt-12 text-white pb-40">
       <Toaster
         position="bottom-center"
         theme="dark"
@@ -856,38 +856,40 @@ function ExpensesPageContent() {
       <div className="max-w-md mx-auto">
           {/* Header */}
           <div className="mb-6">
-            {/* First Row - Buttons */}
-            <div className="flex justify-between items-center mb-4">
+            {/* Action Buttons Grid */}
+            <div className="grid grid-cols-4 gap-2 mb-4">
               <button
                 onClick={() => setShowFavoritesModal(true)}
-                className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
+                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
                 title="如何收藏此 App"
               >
-                ⭐ 收藏
+                <span className="text-xl mb-1">⭐</span>
+                <span className="text-xs">收藏</span>
               </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleExportCSV}
-                  className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
-                  title="匯出為 CSV 文件"
-                >
-                  📊 匯出
-                </button>
-                <button
-                  onClick={handleShareLink}
-                  className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
-                >
-                  🔗 分享
-                </button>
-                <button
-                  onClick={() => router.push('/expenses')}
-                  className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
-                >
-                  ➕ 新旅程
-                </button>
-              </div>
+              <button
+                onClick={handleExportCSV}
+                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+                title="匯出為 CSV 文件"
+              >
+                <span className="text-xl mb-1">📊</span>
+                <span className="text-xs">匯出</span>
+              </button>
+              <button
+                onClick={handleShareLink}
+                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                <span className="text-xl mb-1">🔗</span>
+                <span className="text-xs">分享</span>
+              </button>
+              <button
+                onClick={() => router.push('/expenses')}
+                className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-xl text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                <span className="text-xl mb-1">➕</span>
+                <span className="text-xs">新旅程</span>
+              </button>
             </div>
-            {/* Second Row - Title */}
+            {/* Title */}
             <h1 className="text-2xl font-bold">{data.name}</h1>
           </div>
 
@@ -1046,7 +1048,7 @@ function ExpensesPageContent() {
                        const code = getFinalCurrency();
                        setExchangeRates(prev => ({
                          ...prev,
-                         [code]: parseFloat(e.target.value) || 0,
+                         [code]: e.target.value, // Store as string directly
                        }));
                      }}
                      className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
