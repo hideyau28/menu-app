@@ -1065,14 +1065,14 @@ function ExpensesPageContent() {
              </div>
 
              {/* Date and Amount Input */}
-             <div className="flex gap-2">
+             <div className="grid grid-cols-2 gap-3">
                <input
                  type="date"
                  value={date}
                  onChange={(e) => setDate(e.target.value)}
-                 className="w-1/3 p-3 h-[50px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none"
+                 className="w-full p-3 h-[50px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none"
                />
-               <div className="flex-1 min-w-0">
+               <div className="w-full">
                  <input
                    type="number"
                    step="0.01"
@@ -1102,7 +1102,7 @@ function ExpensesPageContent() {
                 {/* 誰付錢 - Avatar Style */}
                 <div className="space-y-2">
                   <span className="text-xs text-gray-500">誰付錢:</span>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide pb-2">
+                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide py-4">
                     {data.members.map((m, idx) => (
                       <button
                         key={m.id}
@@ -1147,7 +1147,7 @@ function ExpensesPageContent() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide pb-2">
+                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide py-4">
                     {data.members.map((m, idx) => {
                       const isSelected = participantIds.includes(m.id);
                       return (
@@ -1399,7 +1399,17 @@ function ExpensesPageContent() {
           {/* Records List - Grouped by Date */}
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
             <div className="p-4">
-              <h3 className="font-bold text-gray-300 mb-4">記錄列表</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-gray-300">記錄列表</h3>
+                {expensesByDate.length > 0 && expandedDate !== null && (
+                  <button
+                    onClick={() => setExpandedDate(null)}
+                    className="text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    📁 收起
+                  </button>
+                )}
+              </div>
 
               {expensesByDate.length === 0 && (
                 <div className="text-center text-gray-500 py-8">暫無記錄</div>
@@ -1445,24 +1455,23 @@ function ExpensesPageContent() {
 
                             return (
                               <div key={e.id} className="flex justify-between items-center bg-[#1c1c1e] p-3 rounded-xl border border-gray-800">
-                                <div className="flex items-center gap-3 flex-1">
-                                  <div className="text-xl">{CATEGORIES.find(c => c.id === e.category)?.icon || "📝"}</div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-sm">{e.title}</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">
-                                      {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
-                                      {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
-                                        <span className="ml-1 text-gray-600">(原本 {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
-                                      )}
-                                    </div>
-                                    {e.note && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        <span className="opacity-70">📝</span> {e.note}
-                                      </div>
+                                <div className="flex-1 min-w-0 pr-3">
+                                  <div className="font-bold text-sm">
+                                    {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {e.title}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
+                                    {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
+                                      <span className="ml-1 text-gray-600">(原本 {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
                                     )}
                                   </div>
+                                  {e.note && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      <span className="opacity-70">📝</span> {e.note}
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="text-right flex items-center gap-2">
+                                <div className="text-right flex items-center gap-2 flex-shrink-0">
                                   <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
                                   <button
                                     onClick={() => handleEdit(e)}
