@@ -1102,7 +1102,7 @@ function ExpensesPageContent() {
                 {/* 誰付錢 - Avatar Style */}
                 <div className="space-y-2">
                   <span className="text-xs text-gray-500">誰付錢:</span>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide py-4">
+                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide p-4">
                     {data.members.map((m, idx) => (
                       <button
                         key={m.id}
@@ -1147,7 +1147,7 @@ function ExpensesPageContent() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide py-4">
+                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide p-4">
                     {data.members.map((m, idx) => {
                       const isSelected = participantIds.includes(m.id);
                       return (
@@ -1404,9 +1404,10 @@ function ExpensesPageContent() {
                 {expensesByDate.length > 0 && expandedDate !== null && (
                   <button
                     onClick={() => setExpandedDate(null)}
-                    className="text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors"
+                    className="text-lg px-2 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors"
+                    title="收起全部"
                   >
-                    📁 收起
+                    📁
                   </button>
                 )}
               </div>
@@ -1434,9 +1435,11 @@ function ExpensesPageContent() {
                             <div className="text-xs text-gray-400">{dateGroup.expenses.length} 筆記錄</div>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex items-center gap-3">
                           <div className="font-bold text-white">HKD ${dateGroup.total.toFixed(2)}</div>
-                          <div className="text-xs text-gray-500">{isExpanded ? "▲" : "▼"}</div>
+                          <div className={`text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                            ▼
+                          </div>
                         </div>
                       </button>
 
