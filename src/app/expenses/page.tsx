@@ -107,7 +107,7 @@ function ExpensesPageContent() {
   // Accordion States
   const [balancesExpanded, setBalancesExpanded] = useState(false);
   const [settlementsExpanded, setSettlementsExpanded] = useState(false);
-  const [recordsExpanded, setRecordsExpanded] = useState(false);
+  const [recordsExpanded, setRecordsExpanded] = useState(true);
 
   // Modal States
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
@@ -1441,33 +1441,31 @@ function ExpensesPageContent() {
 
           {/* Records List - Grouped by Date */}
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <div className="p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-gray-300">記錄列表</h3>
-                {expensesByDate.length > 0 && expandedDate !== null && (
-                  <button
-                    onClick={() => setExpandedDate(null)}
-                    className="text-lg px-2 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors"
-                    title="收起全部"
-                  >
-                    📁
-                  </button>
+            <button
+              onClick={() => setRecordsExpanded(!recordsExpanded)}
+              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+            >
+              <h3 className="font-bold text-gray-300">記錄列表</h3>
+              <ChevronDown
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${recordsExpanded ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {recordsExpanded && (
+              <div className="px-4 pb-4">
+                {expensesByDate.length === 0 && (
+                  <div className="text-center text-gray-500 py-8">暫無記錄</div>
                 )}
-              </div>
 
-              {expensesByDate.length === 0 && (
-                <div className="text-center text-gray-500 py-8">暫無記錄</div>
-              )}
+                {/* Date Cards */}
+                <div className="space-y-3">
+                  {expensesByDate.map((dateGroup) => {
+                    const isExpanded = expandedDate === dateGroup.date;
 
-              {/* Date Cards */}
-              <div className="space-y-3">
-                {expensesByDate.map((dateGroup) => {
-                  const isExpanded = expandedDate === dateGroup.date;
-
-                  // Toggle handler for this specific date
-                  const handleToggle = () => {
-                    setExpandedDate(prev => prev === dateGroup.date ? null : dateGroup.date);
-                  };
+                    // Toggle handler for this specific date
+                    const handleToggle = () => {
+                      setExpandedDate(prev => prev === dateGroup.date ? null : dateGroup.date);
+                    };
 
                   return (
                     <div key={dateGroup.date} className="border border-gray-800 rounded-xl overflow-hidden">
@@ -1543,6 +1541,7 @@ function ExpensesPageContent() {
                 })}
               </div>
             </div>
+            )}
           </div>
       </div>
     </div>
