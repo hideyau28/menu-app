@@ -33,6 +33,7 @@ const CURRENCIES = [
   { code: 'CNY', label: 'CNY 人民幣', flag: '🇨🇳' },
   { code: 'EUR', label: 'EUR 歐元', flag: '🇪🇺' },
   { code: 'GBP', label: 'GBP 英鎊', flag: '🇬🇧' },
+  { code: 'CAD', label: 'CAD 加幣', flag: '🇨🇦' },
   { code: 'KRW', label: 'KRW 韓圜', flag: '🇰🇷' },
   { code: 'TWD', label: 'TWD 新台幣', flag: '🇹🇼' },
   { code: 'THB', label: 'THB 泰銖', flag: '🇹🇭' },
@@ -53,6 +54,21 @@ const AVATAR_COLORS = [
 
 const getAvatarColor = (index: number) => {
   return AVATAR_COLORS[index % AVATAR_COLORS.length];
+};
+
+const getAvatarText = (name: string) => {
+  if (!name) return '?';
+
+  // Check if the name contains Chinese characters
+  const hasChinese = /[\u4e00-\u9fff]/.test(name);
+
+  if (hasChinese) {
+    // For Chinese names, take the first character
+    return name.charAt(0);
+  } else {
+    // For English names, take the first 2 letters and uppercase
+    return name.substring(0, 2).toUpperCase();
+  }
 };
 
 function ExpensesPageContent() {
@@ -89,6 +105,12 @@ function ExpensesPageContent() {
   const [balancesExpanded, setBalancesExpanded] = useState(false);
   const [settlementsExpanded, setSettlementsExpanded] = useState(false);
   const [recordsExpanded, setRecordsExpanded] = useState(false);
+
+  // Modal States
+  const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+
+  // Date Grouping State
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   // Toast Helper using Sonner
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -502,7 +524,37 @@ function ExpensesPageContent() {
     }
   };
 
-  // 9. 匯出 CSV (Export CSV)
+  // 9. 刪除當前編輯中的支出 (Delete Current Editing Expense)
+  const handleDeleteCurrentExpense = async () => {
+    if (!data || !editingExpenseId) return;
+
+    // Find the expense to show details in confirmation
+    const expense = data.expenses.find(e => e.id === editingExpenseId);
+    if (!expense) return;
+
+    const confirmMsg = [
+      '確定刪除此記錄?',
+      '',
+      `📝 ${expense.title}`,
+      `💰 HKD $${expense.amountHKD.toFixed(2)}`,
+      `📅 ${expense.date}`,
+      `👤 ${expense.payerName}`,
+    ].join('\n');
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await deleteExpense(data.code, editingExpenseId);
+      handleCancelEdit();
+      await reloadTrip();
+      showToast("已刪除", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("刪除失敗", "error");
+    }
+  };
+
+  // 10. 匯出 CSV (Export CSV)
   const handleExportCSV = () => {
     if (!data || data.expenses.length === 0) {
       showToast("沒有記錄可匯出", "error");
@@ -660,6 +712,60 @@ function ExpensesPageContent() {
     return transactions;
   }, [data, balances]);
 
+  // 日期分組 (Group expenses by date)
+  const expensesByDate = useMemo(() => {
+    if (!data) return [];
+
+    // Group expenses by date
+    const groups = data.expenses.reduce((acc, expense) => {
+      const date = expense.date;
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(expense);
+      return acc;
+    }, {} as Record<string, typeof data.expenses>);
+
+    // Convert to array and sort by date (newest first)
+    const sortedGroups = Object.entries(groups)
+      .map(([date, expenses]) => ({
+        date,
+        expenses,
+        total: expenses.reduce((sum, e) => sum + e.amountHKD, 0),
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return sortedGroups;
+  }, [data]);
+
+  // Auto-expand the most recent date on initial load
+  useEffect(() => {
+    if (expensesByDate.length > 0 && expandedDates.size === 0) {
+      setExpandedDates(new Set([expensesByDate[0].date]));
+    }
+  }, [expensesByDate, expandedDates.size]);
+
+  // Toggle date expansion
+  const toggleDateExpansion = (date: string) => {
+    setExpandedDates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(date)) {
+        newSet.delete(date);
+      } else {
+        newSet.add(date);
+      }
+      return newSet;
+    });
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}月${day}日`;
+  };
+
   // --- 畫面渲染邏輯 ---
 
   // 情況 A: 正在跟 Server 拿資料
@@ -749,30 +855,79 @@ function ExpensesPageContent() {
       />
       <div className="max-w-md mx-auto">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">{data.name}</h1>
-            <div className="flex gap-2">
+          <div className="mb-6">
+            {/* First Row - Buttons */}
+            <div className="flex justify-between items-center mb-4">
               <button
-                onClick={handleExportCSV}
+                onClick={() => setShowFavoritesModal(true)}
                 className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
-                title="匯出為 CSV 文件"
+                title="如何收藏此 App"
               >
-                📊 匯出
+                ⭐ 收藏
               </button>
-              <button
-                onClick={handleShareLink}
-                className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
-              >
-                🔗 分享
-              </button>
-              <button
-                onClick={() => router.push('/expenses')}
-                className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
-              >
-                新旅程
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleExportCSV}
+                  className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
+                  title="匯出為 CSV 文件"
+                >
+                  📊 匯出
+                </button>
+                <button
+                  onClick={handleShareLink}
+                  className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
+                >
+                  🔗 分享
+                </button>
+                <button
+                  onClick={() => router.push('/expenses')}
+                  className="text-xs px-3 py-2 bg-[#1c1c1e] rounded-lg text-gray-400 border border-gray-800 hover:bg-gray-800 transition-colors"
+                >
+                  ➕ 新旅程
+                </button>
+              </div>
             </div>
+            {/* Second Row - Title */}
+            <h1 className="text-2xl font-bold">{data.name}</h1>
           </div>
+
+          {/* Favorites Modal */}
+          {showFavoritesModal && (
+            <div
+              className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+              onClick={() => setShowFavoritesModal(false)}
+            >
+              <div
+                className="bg-[#1c1c1e] rounded-2xl p-6 max-w-md w-full border border-gray-800"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 className="text-xl font-bold mb-4">⭐ 如何收藏此 App？</h2>
+                <div className="space-y-4 text-sm text-gray-300">
+                  <div>
+                    <div className="font-semibold text-white mb-2">📱 iOS（推薦）：</div>
+                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                      <li>點擊下方「分享」按鈕 <span className="text-blue-400">(↑)</span></li>
+                      <li>選擇「加入主畫面」</li>
+                      <li>或選擇「加入我的最愛」</li>
+                    </ol>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-white mb-2">🤖 Android：</div>
+                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                      <li>點擊瀏覽器選單 <span className="text-blue-400">(⋮)</span></li>
+                      <li>選擇「安裝應用程式」或「加到主螢幕」</li>
+                    </ol>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowFavoritesModal(false)}
+                  className="w-full mt-6 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
+                >
+                  知道了
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Total Card */}
           <div className="mb-6 p-6 bg-[#1c1c1e] rounded-3xl shadow-lg border border-gray-800">
@@ -884,8 +1039,8 @@ function ExpensesPageContent() {
                    </span>
                    <input
                      type="number"
-                     step="0.0001"
-                     placeholder="0.0000"
+                     step="0.000001"
+                     placeholder="0.000000"
                      value={exchangeRates[getFinalCurrency()] || ''}
                      onChange={(e) => {
                        const code = getFinalCurrency();
@@ -953,7 +1108,7 @@ function ExpensesPageContent() {
                         }}
                         title={m.name}
                       >
-                        {m.name.charAt(0).toUpperCase()}
+                        {getAvatarText(m.name)}
                         {payerId === m.id && (
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center text-xs">
                             ✓
@@ -1004,7 +1159,7 @@ function ExpensesPageContent() {
                           }}
                           title={m.name}
                         >
-                          {m.name.charAt(0).toUpperCase()}
+                          {getAvatarText(m.name)}
                           {isSelected && (
                             <div className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
                               ✓
@@ -1103,19 +1258,27 @@ function ExpensesPageContent() {
              </div>
 
              {editingExpenseId ? (
-               <div className="flex gap-2">
-                 <button
-                   onClick={handleCancelEdit}
-                   className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors"
-                 >
-                   取消
-                 </button>
+               <div className="space-y-2">
                  <button
                    onClick={handleUpdateExpense}
-                   className="flex-1 py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors"
+                   className="w-full py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors"
                  >
-                   ✓ 更新記錄
+                   💾 更新記錄
                  </button>
+                 <div className="flex gap-2">
+                   <button
+                     onClick={handleCancelEdit}
+                     className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors"
+                   >
+                     取消
+                   </button>
+                   <button
+                     onClick={handleDeleteCurrentExpense}
+                     className="flex-1 py-3 bg-red-600 rounded-xl font-bold hover:bg-red-500 transition-colors"
+                   >
+                     🗑️ 刪除
+                   </button>
+                 </div>
                </div>
              ) : (
                <button onClick={handleAddExpense} className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors">
@@ -1224,75 +1387,92 @@ function ExpensesPageContent() {
             )}
           </div>
 
-          {/* Records List - Now Collapsible */}
+          {/* Records List - Grouped by Date */}
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <button
-              onClick={() => setRecordsExpanded(!recordsExpanded)}
-              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
-            >
-              <h3 className="font-bold text-gray-300">最近記錄</h3>
-              <span className="text-gray-500 text-sm">
-                {recordsExpanded ? "▲" : "▼"}
-              </span>
-            </button>
+            <div className="p-4">
+              <h3 className="font-bold text-gray-300 mb-4">記錄列表</h3>
 
-            {recordsExpanded && (
-              <div className="px-4 pb-4 space-y-2">
-                {data.expenses.length === 0 && <div className="text-center text-gray-500 py-3">暫無記錄</div>}
-                {data.expenses.map((e) => {
-                  // Calculate beneficiaries display
-                  const allParticipants = e.participants.length === data.members.length;
-                  const beneficiariesText = allParticipants
-                    ? "全員"
-                    : e.participants.map(p => {
-                        const memberId = typeof p === 'string' ? p : p.id;
-                        return data.members.find(m => m.id === memberId)?.name;
-                      }).filter(Boolean).join(", ");
+              {expensesByDate.length === 0 && (
+                <div className="text-center text-gray-500 py-8">暫無記錄</div>
+              )}
+
+              {/* Date Cards */}
+              <div className="space-y-3">
+                {expensesByDate.map((dateGroup) => {
+                  const isExpanded = expandedDates.has(dateGroup.date);
 
                   return (
-                    <div key={e.id} className="flex justify-between items-center bg-black p-3 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <div className="text-xl">{CATEGORIES.find(c => c.id === e.category)?.icon || "📝"}</div>
-                        <div>
-                          <div className="font-bold text-sm">{e.title}</div>
-                          <div className="text-xs text-gray-400">
-                            {new Date(e.date).toLocaleDateString()}
+                    <div key={dateGroup.date} className="border border-gray-800 rounded-xl overflow-hidden">
+                      {/* Date Header Card */}
+                      <button
+                        onClick={() => toggleDateExpansion(dateGroup.date)}
+                        className="w-full p-4 bg-black hover:bg-gray-900 transition-colors flex justify-between items-center"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-2xl">{isExpanded ? "📅" : "📆"}</div>
+                          <div className="text-left">
+                            <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
+                            <div className="text-xs text-gray-400">{dateGroup.expenses.length} 筆記錄</div>
                           </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
-                            {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
-                              <span className="ml-1 text-gray-600">(原本 {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
-                            )}
-                          </div>
-                          {e.note && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              <span className="opacity-70">📝</span> {e.note}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={() => handleEdit(e)}
-                            className="text-xs text-blue-500 px-2 py-1 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors"
-                          >
-                            ✏️ 修改
-                          </button>
-                          <button
-                            onClick={() => handleDelete(e.id)}
-                            className="text-xs text-red-500 px-2 py-1 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
-                          >
-                            刪除
-                          </button>
+                        <div className="text-right">
+                          <div className="font-bold text-white">HKD ${dateGroup.total.toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">{isExpanded ? "▲" : "▼"}</div>
                         </div>
-                      </div>
+                      </button>
+
+                      {/* Expanded Records */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 space-y-2 bg-black/30">
+                          {dateGroup.expenses.map((e) => {
+                            // Calculate beneficiaries display
+                            const allParticipants = e.participants.length === data.members.length;
+                            const beneficiariesText = allParticipants
+                              ? "全員"
+                              : e.participants.map(p => {
+                                  const memberId = typeof p === 'string' ? p : p.id;
+                                  return data.members.find(m => m.id === memberId)?.name;
+                                }).filter(Boolean).join(", ");
+
+                            return (
+                              <div key={e.id} className="flex justify-between items-center bg-[#1c1c1e] p-3 rounded-xl border border-gray-800">
+                                <div className="flex items-center gap-3 flex-1">
+                                  <div className="text-xl">{CATEGORIES.find(c => c.id === e.category)?.icon || "📝"}</div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-sm">{e.title}</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                      {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
+                                      {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
+                                        <span className="ml-1 text-gray-600">(原本 {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
+                                      )}
+                                    </div>
+                                    {e.note && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        <span className="opacity-70">📝</span> {e.note}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right flex items-center gap-2">
+                                  <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
+                                  <button
+                                    onClick={() => handleEdit(e)}
+                                    className="text-lg p-2 hover:bg-blue-500/20 rounded-lg transition-colors"
+                                    title="編輯"
+                                  >
+                                    ✏️
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
-            )}
+            </div>
           </div>
       </div>
     </div>
