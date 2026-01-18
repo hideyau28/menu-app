@@ -1,5 +1,5 @@
-// Cache Buster: Make Record List Collapsible - Timestamp: 1737331200000
-// Force Deploy Trigger: 2026-01-19 Make 'Record List' header collapsible with Chevron icon to match other sections
+// UI Fix: Sync Header Styles & Fix Date Toggle - 1737332400000
+// Cache Buster: Clone Record List header style from top sections and fix date collapse logic
 import type { NextConfig } from "next";
 // @ts-ignore - next-pwa doesn't have TypeScript definitions
 import withPWA from 'next-pwa';
