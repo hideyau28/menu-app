@@ -71,6 +71,19 @@ interface Translations {
   pleaseEnterRate: string;
   splitAmountMismatch: string;
   enterAllSplits: string;
+
+  // List Terms (Task 2)
+  paidSuffix: string;
+  origPrefix: string;
+  recordsCount: string;
+
+  // Placeholders (Task 2)
+  amountPh: string;
+  notePh: string;
+  dateFmt: string;
+
+  // Select (Task 2)
+  currencyLabel: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -141,6 +154,19 @@ const translations: Record<Language, Translations> = {
     pleaseEnterRate: '請先輸入',
     splitAmountMismatch: '分擔金額總和不正確',
     enterAllSplits: '請輸入所有參與者的分擔金額',
+
+    // List Terms
+    paidSuffix: '付款',
+    origPrefix: '原本',
+    recordsCount: '筆記錄',
+
+    // Placeholders
+    amountPh: '金額',
+    notePh: '備註 (選填)',
+    dateFmt: 'M月d日',
+
+    // Select
+    currencyLabel: '港幣',
   },
   en: {
     // UI Labels
@@ -209,6 +235,19 @@ const translations: Record<Language, Translations> = {
     pleaseEnterRate: 'Please enter',
     splitAmountMismatch: 'Split amount mismatch',
     enterAllSplits: 'Please enter all split amounts',
+
+    // List Terms
+    paidSuffix: 'paid',
+    origPrefix: 'orig.',
+    recordsCount: 'records',
+
+    // Placeholders
+    amountPh: 'Amount',
+    notePh: 'Note (Optional)',
+    dateFmt: 'MMM d',
+
+    // Select
+    currencyLabel: 'HKD',
   },
 };
 

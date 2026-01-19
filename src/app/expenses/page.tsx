@@ -934,11 +934,11 @@ function ExpensesPageContent() {
               </button>
             </div>
             {/* Title with Language Toggle */}
-            <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold">{data.name}</h1>
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-3xl font-extrabold tracking-tight">{data.name}</h1>
               <button
                 onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 ml-auto hover:bg-gray-800 transition-colors"
+                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 hover:bg-gray-800 transition-colors flex-shrink-0"
               >
                 {language === 'zh' ? 'EN' : '中'}
               </button>
@@ -1043,7 +1043,7 @@ function ExpensesPageContent() {
                         backgroundColor: isSelected ? color : 'transparent',
                       }}
                     >
-                      <span className="mr-1">{c.icon}</span>{c.label}
+                      <span className="mr-1">{c.icon}</span>{t[c.id as keyof typeof t] || c.label}
                     </button>
                   );
                 })}
@@ -1080,7 +1080,7 @@ function ExpensesPageContent() {
                <input
                  type="number"
                  step="0.01"
-                 placeholder={`金額 (${getFinalCurrency()})`}
+                 placeholder={`${t.amountPh} (${getFinalCurrency()})`}
                  value={amount}
                  onChange={(e) => setAmount(e.target.value)}
                  className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
@@ -1097,7 +1097,7 @@ function ExpensesPageContent() {
                {/* Notes Input */}
                <input
                  type="text"
-                 placeholder="備註 (選填)"
+                 placeholder={t.notePh}
                  value={note}
                  onChange={(e) => setNote(e.target.value)}
                  className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
@@ -1150,7 +1150,7 @@ function ExpensesPageContent() {
              <div className="space-y-3">
                 {/* 誰付錢 - Avatar Style */}
                 <div className="space-y-2">
-                  <span className="text-xs text-gray-500">誰付錢:</span>
+                  <span className="text-xs text-gray-500">{t.whoPaid}:</span>
                   <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide p-4">
                     {data.members.map((m, idx) => (
                       <button
@@ -1180,19 +1180,19 @@ function ExpensesPageContent() {
                 {/* 誰分擔 - Avatar Style with 全選/全不選 */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">誰分擔:</span>
+                    <span className="text-xs text-gray-500">{t.whoSplit}:</span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setParticipantIds(data.members.map(m => m.id))}
                         className="text-xs px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
                       >
-                        全選
+                        {t.selectAll}
                       </button>
                       <button
                         onClick={() => setParticipantIds([])}
                         className="text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors font-medium"
                       >
-                        全不選
+                        {t.deselectAll}
                       </button>
                     </div>
                   </div>
@@ -1232,7 +1232,7 @@ function ExpensesPageContent() {
                 {/* Split Mode Toggle */}
                 {participantIds.length > 0 && (
                   <div className="flex items-center gap-2 pt-2">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">分擔方式:</span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap">{t.splitMode}:</span>
                     <button
                       onClick={() => {
                         setSplitMode('equal');
@@ -1244,7 +1244,7 @@ function ExpensesPageContent() {
                           : 'border-gray-700 text-gray-400 hover:bg-gray-800'
                       }`}
                     >
-                      平均分擔
+                      {t.equalSplit}
                     </button>
                     <button
                       onClick={() => {
@@ -1261,7 +1261,7 @@ function ExpensesPageContent() {
                           : 'border-gray-700 text-gray-400 hover:bg-gray-800'
                       }`}
                     >
-                      詳細輸入
+                      {t.customSplit}
                     </button>
                   </div>
                 )}
