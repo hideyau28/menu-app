@@ -1,5 +1,5 @@
-// UI Fix: Sync Header Styles & Fix Date Toggle - 1737332400000
-// Cache Buster: Clone Record List header style from top sections and fix date collapse logic
+// UI Fix: Remove auto-expand logic and unify chevron style - 1737333600000
+// Fix: Remove auto-expand logic for latest date and unify Record List chevron style
 import type { NextConfig } from "next";
 // @ts-ignore - next-pwa doesn't have TypeScript definitions
 import withPWA from 'next-pwa';

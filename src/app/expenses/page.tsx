@@ -781,12 +781,13 @@ function ExpensesPageContent() {
     return sortedGroups;
   }, [data]);
 
-  // Auto-expand the most recent date on initial load
-  useEffect(() => {
-    if (expensesByDate.length > 0 && expandedDate === null) {
-      setExpandedDate(expensesByDate[0].date);
-    }
-  }, [expensesByDate, expandedDate]);
+  // Auto-expand the most recent date on initial load (REMOVED to allow full collapse)
+  // Users should be able to collapse all dates without auto-reopen
+  // useEffect(() => {
+  //   if (expensesByDate.length > 0 && expandedDate === null) {
+  //     setExpandedDate(expensesByDate[0].date);
+  //   }
+  // }, [expensesByDate, expandedDate]);
 
   // Toggle date expansion - only one date can be expanded at a time
   const toggleDateExpansion = (date: string) => {
@@ -1446,9 +1447,9 @@ function ExpensesPageContent() {
               className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
             >
               <h3 className="font-bold text-gray-300">記錄列表</h3>
-              <span className="text-gray-500 text-sm">
-                {recordsExpanded ? "▲" : "▼"}
-              </span>
+              <ChevronDown
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${recordsExpanded ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {recordsExpanded && (
