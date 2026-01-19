@@ -112,8 +112,8 @@ function ExpensesPageContent() {
   // Modal States
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
 
-  // Date Grouping State - Only one date can be expanded at a time
-  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  // Date Grouping State - Multiple dates can be expanded at the same time
+  const [expandedDates, setExpandedDates] = useState<string[]>([]);
 
   // Toast Helper using Sonner
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -781,18 +781,8 @@ function ExpensesPageContent() {
     return sortedGroups;
   }, [data]);
 
-  // Auto-expand the most recent date on initial load (REMOVED to allow full collapse)
-  // Users should be able to collapse all dates without auto-reopen
-  // useEffect(() => {
-  //   if (expensesByDate.length > 0 && expandedDate === null) {
-  //     setExpandedDate(expensesByDate[0].date);
-  //   }
-  // }, [expensesByDate, expandedDate]);
-
-  // Toggle date expansion - only one date can be expanded at a time
-  const toggleDateExpansion = (date: string) => {
-    setExpandedDate(prev => prev === date ? null : date);
-  };
+  // Multi-date expansion enabled - users can expand multiple dates simultaneously
+  // No auto-expand logic to allow full collapse
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -821,17 +811,22 @@ function ExpensesPageContent() {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center px-4">
-            <div className="mb-4 text-4xl">❌</div>
+            <div className="mb-4 flex justify-center">
+              <RotateCw className="w-12 h-12 text-blue-500" />
+            </div>
             <div className="text-xl mb-2">找不到旅程</div>
             <div className="text-sm text-gray-400 mb-6">代碼: {code}</div>
-            <button onClick={() => router.push('/expenses')} className="px-6 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors">
-                建立新旅程
-            </button>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-full hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
+              className="px-8 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors font-medium"
             >
-                🔄 重新整理頁面
+                重新整理頁面
+            </button>
+            <button
+              onClick={() => router.push('/expenses')}
+              className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
+            >
+                建立新旅程
             </button>
         </div>
       </div>
@@ -1347,9 +1342,9 @@ function ExpensesPageContent() {
               className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
             >
               <h3 className="font-bold text-gray-300">結餘狀況</h3>
-              <span className="text-gray-500 text-sm">
-                {balancesExpanded ? "▲" : "▼"}
-              </span>
+              <ChevronDown
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${balancesExpanded ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {balancesExpanded && (
@@ -1412,9 +1407,9 @@ function ExpensesPageContent() {
               className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
             >
               <h3 className="font-bold text-gray-300">建議還款方案</h3>
-              <span className="text-gray-500 text-sm">
-                {settlementsExpanded ? "▲" : "▼"}
-              </span>
+              <ChevronDown
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${settlementsExpanded ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {settlementsExpanded && (
@@ -1461,11 +1456,15 @@ function ExpensesPageContent() {
                 {/* Date Cards */}
                 <div className="space-y-3">
                   {expensesByDate.map((dateGroup) => {
-                    const isExpanded = expandedDate === dateGroup.date;
+                    const isExpanded = expandedDates.includes(dateGroup.date);
 
-                    // Toggle handler for this specific date
+                    // Toggle handler for this specific date - Multi-expand mode
                     const handleToggle = () => {
-                      setExpandedDate(prev => prev === dateGroup.date ? null : dateGroup.date);
+                      setExpandedDates(prev =>
+                        prev.includes(dateGroup.date)
+                          ? prev.filter(d => d !== dateGroup.date)  // Remove if already expanded
+                          : [...prev, dateGroup.date]               // Add if not expanded
+                      );
                     };
 
                   return (

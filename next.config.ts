@@ -1,5 +1,5 @@
-// UI Fix: Remove auto-expand logic and unify chevron style - 1737333600000
-// Fix: Remove auto-expand logic for latest date and unify Record List chevron style
+// Feat: Multi-date expansion, unified chevron icons, improved error UI - 1737334800000
+// Enable multi-date expansion, update error UI to Refresh style, and unify header icons
 import type { NextConfig } from "next";
 // @ts-ignore - next-pwa doesn't have TypeScript definitions
 import withPWA from 'next-pwa';
