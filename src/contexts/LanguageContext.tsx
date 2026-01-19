@@ -90,6 +90,10 @@ interface Translations {
   // Balances (Task 1)
   totalAdvanced: string;
   totalSpent: string;
+
+  // Status Badges
+  status_get: string;
+  status_pay: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -179,6 +183,10 @@ const translations: Record<Language, Translations> = {
     // Balances
     totalAdvanced: '總墊支',
     totalSpent: '總消費',
+
+    // Status Badges
+    status_get: '收',
+    status_pay: '付',
   },
   en: {
     // UI Labels
@@ -266,6 +274,10 @@ const translations: Record<Language, Translations> = {
     // Balances
     totalAdvanced: 'Total Advanced',
     totalSpent: 'Total Spent',
+
+    // Status Badges
+    status_get: 'Get',
+    status_pay: 'Pay',
   },
 };
 

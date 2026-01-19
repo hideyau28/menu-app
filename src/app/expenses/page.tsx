@@ -810,7 +810,7 @@ function ExpensesPageContent() {
     );
   }
 
-  // 情況 B: 有 code 但找不到資料 -> 顯示錯誤
+  // 情況 B: 有 code 但找不到資料 -> 顯示錯誤 (Force English)
   if (code && !data) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -818,19 +818,18 @@ function ExpensesPageContent() {
             <div className="mb-4 flex justify-center">
               <RotateCw className="w-12 h-12 text-blue-500" />
             </div>
-            <div className="text-xl mb-2">{t.tripNotFound}</div>
-            <div className="text-sm text-gray-400 mb-6">代碼: {code}</div>
+            <div className="text-sm text-gray-400 mb-6">Code: {code}</div>
             <button
               onClick={() => window.location.reload()}
               className="px-8 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors font-medium"
             >
-                {t.refreshPage}
+                Refresh Page
             </button>
             <button
               onClick={() => router.push('/expenses')}
               className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
             >
-                {t.createTrip}
+                Create New Trip
             </button>
         </div>
       </div>
@@ -1402,7 +1401,7 @@ function ExpensesPageContent() {
                       <div className="flex justify-between items-center mb-1">
                         <span className="font-medium">{member.name}</span>
                         <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
-                          {bal > 0 ? `收 ${bal.toFixed(1)}` : bal < 0 ? `付 ${Math.abs(bal).toFixed(1)}` : "平手"}
+                          {bal > 0 ? `${t.status_get} ${bal.toFixed(1)}` : bal < 0 ? `${t.status_pay} ${Math.abs(bal).toFixed(1)}` : "平手"}
                         </span>
                       </div>
                       <div className="text-xs text-gray-500">
