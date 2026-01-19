@@ -7,6 +7,8 @@ import { toast, Toaster } from 'sonner';
 import * as XLSX from 'xlsx';
 import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { format } from 'date-fns';
+import { enUS, zhTW } from 'date-fns/locale';
 
 // 定義資料類型
 type TripData = Awaited<ReturnType<typeof getTripByCode>>;
@@ -31,16 +33,16 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const CURRENCIES = [
   { code: 'HKD', label: 'HKD 港幣', flag: '🇭🇰' },
-  { code: 'JPY', label: 'JPY 日圓', flag: '🇯🇵' },
-  { code: 'USD', label: 'USD 美元', flag: '🇺🇸' },
-  { code: 'CNY', label: 'CNY 人民幣', flag: '🇨🇳' },
-  { code: 'EUR', label: 'EUR 歐元', flag: '🇪🇺' },
-  { code: 'GBP', label: 'GBP 英鎊', flag: '🇬🇧' },
-  { code: 'CAD', label: 'CAD 加幣', flag: '🇨🇦' },
-  { code: 'KRW', label: 'KRW 韓圜', flag: '🇰🇷' },
-  { code: 'TWD', label: 'TWD 新台幣', flag: '🇹🇼' },
-  { code: 'THB', label: 'THB 泰銖', flag: '🇹🇭' },
-  { code: 'AUD', label: 'AUD 澳元', flag: '🇦🇺' },
+  { code: 'JPY', label: 'JPY', flag: '🇯🇵' },
+  { code: 'USD', label: 'USD', flag: '🇺🇸' },
+  { code: 'CNY', label: 'CNY', flag: '🇨🇳' },
+  { code: 'EUR', label: 'EUR', flag: '🇪🇺' },
+  { code: 'GBP', label: 'GBP', flag: '🇬🇧' },
+  { code: 'CAD', label: 'CAD', flag: '🇨🇦' },
+  { code: 'KRW', label: 'KRW', flag: '🇰🇷' },
+  { code: 'TWD', label: 'TWD', flag: '🇹🇼' },
+  { code: 'THB', label: 'THB', flag: '🇹🇭' },
+  { code: 'AUD', label: 'AUD', flag: '🇦🇺' },
   { code: 'OTHER', label: '其他幣種...', flag: '🌍' },
 ] as const;
 
@@ -786,12 +788,12 @@ function ExpensesPageContent() {
   // Multi-date expansion enabled - users can expand multiple dates simultaneously
   // No auto-expand logic to allow full collapse
 
-  // Format date for display
+  // Format date for display - Localized
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    return `${month}月${day}日`;
+    return format(date, language === 'en' ? 'MMM d' : 'M月d日', {
+      locale: language === 'en' ? enUS : zhTW
+    });
   };
 
   // --- 畫面渲染邏輯 ---
@@ -1074,7 +1076,7 @@ function ExpensesPageContent() {
                >
                  {CURRENCIES.map(c => (
                    <option key={c.code} value={c.code}>
-                     {c.flag} {c.label}
+                     {c.flag} {c.code} {language === 'zh' && c.code === 'HKD' ? '港幣' : ''}
                    </option>
                  ))}
                </select>
