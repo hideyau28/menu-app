@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense } from "./actions";
 import { toast, Toaster } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check } from 'lucide-react';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 // 定義資料類型
 type TripData = Awaited<ReturnType<typeof getTripByCode>>;
@@ -78,6 +79,7 @@ function ExpensesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
+  const { language, setLanguage, t } = useTranslation();
 
   // State
   const [data, setData] = useState<TripData | null>(null);
@@ -814,19 +816,19 @@ function ExpensesPageContent() {
             <div className="mb-4 flex justify-center">
               <RotateCw className="w-12 h-12 text-blue-500" />
             </div>
-            <div className="text-xl mb-2">找不到旅程</div>
+            <div className="text-xl mb-2">{t.tripNotFound}</div>
             <div className="text-sm text-gray-400 mb-6">代碼: {code}</div>
             <button
               onClick={() => window.location.reload()}
               className="px-8 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors font-medium"
             >
-                重新整理頁面
+                {t.refreshPage}
             </button>
             <button
               onClick={() => router.push('/expenses')}
               className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
             >
-                建立新旅程
+                {t.createTrip}
             </button>
         </div>
       </div>
@@ -931,8 +933,16 @@ function ExpensesPageContent() {
                 <RotateCw className="w-6 h-6" />
               </button>
             </div>
-            {/* Title */}
-            <h1 className="text-2xl font-bold">{data.name}</h1>
+            {/* Title with Language Toggle */}
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold">{data.name}</h1>
+              <button
+                onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
+                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 ml-auto hover:bg-gray-800 transition-colors"
+              >
+                {language === 'zh' ? 'EN' : '中'}
+              </button>
+            </div>
           </div>
 
           {/* Favorites Modal */}
@@ -975,7 +985,7 @@ function ExpensesPageContent() {
 
           {/* Total Card */}
           <div className="mb-6 p-6 bg-[#1c1c1e] rounded-3xl shadow-lg border border-gray-800">
-            <div className="text-gray-400 text-sm mb-1">總開支</div>
+            <div className="text-gray-400 text-sm mb-1">{t.totalExpense}</div>
             <div className="text-4xl font-bold text-white">
                 HKD {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toFixed(2)}
             </div>
@@ -1199,8 +1209,8 @@ function ExpensesPageContent() {
                           )}
                           className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
                             isSelected
-                              ? 'border-blue-500 opacity-100 scale-100'
-                              : 'border-gray-700 opacity-30 hover:opacity-60'
+                              ? 'border-white ring-2 ring-offset-2 ring-offset-black ring-blue-500 scale-110 shadow-lg shadow-blue-500/50'
+                              : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
                           }`}
                           style={{
                             backgroundColor: getAvatarColor(idx),
@@ -1209,8 +1219,8 @@ function ExpensesPageContent() {
                         >
                           {getAvatarText(m.name)}
                           {isSelected && (
-                            <div className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
-                              ✓
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
                             </div>
                           )}
                         </button>
@@ -1341,7 +1351,7 @@ function ExpensesPageContent() {
               onClick={() => setBalancesExpanded(!balancesExpanded)}
               className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
             >
-              <h3 className="font-bold text-gray-300">結餘狀況</h3>
+              <h3 className="font-bold text-gray-300">{t.balances}</h3>
               <ChevronDown
                 className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${balancesExpanded ? 'rotate-180' : ''}`}
               />
@@ -1406,7 +1416,7 @@ function ExpensesPageContent() {
               onClick={() => setSettlementsExpanded(!settlementsExpanded)}
               className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
             >
-              <h3 className="font-bold text-gray-300">建議還款方案</h3>
+              <h3 className="font-bold text-gray-300">{t.settlements}</h3>
               <ChevronDown
                 className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${settlementsExpanded ? 'rotate-180' : ''}`}
               />
@@ -1441,7 +1451,7 @@ function ExpensesPageContent() {
               onClick={() => setRecordsExpanded(!recordsExpanded)}
               className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
             >
-              <h3 className="font-bold text-gray-300">記錄列表</h3>
+              <h3 className="font-bold text-gray-300">{t.recordList}</h3>
               <ChevronDown
                 className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${recordsExpanded ? 'rotate-180' : ''}`}
               />
