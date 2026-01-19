@@ -76,6 +76,7 @@ interface Translations {
   paidSuffix: string;
   origPrefix: string;
   recordsCount: string;
+  recordsSuffix: string;
 
   // Placeholders (Task 2)
   amountPh: string;
@@ -84,6 +85,11 @@ interface Translations {
 
   // Select (Task 2)
   currencyLabel: string;
+  currencySuffix: string;
+
+  // Balances (Task 1)
+  totalAdvanced: string;
+  totalSpent: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -159,6 +165,7 @@ const translations: Record<Language, Translations> = {
     paidSuffix: '付款',
     origPrefix: '原本',
     recordsCount: '筆記錄',
+    recordsSuffix: '筆記錄',
 
     // Placeholders
     amountPh: '金額',
@@ -167,6 +174,11 @@ const translations: Record<Language, Translations> = {
 
     // Select
     currencyLabel: '港幣',
+    currencySuffix: '港幣',
+
+    // Balances
+    totalAdvanced: '總墊支',
+    totalSpent: '總消費',
   },
   en: {
     // UI Labels
@@ -240,6 +252,7 @@ const translations: Record<Language, Translations> = {
     paidSuffix: 'paid',
     origPrefix: 'orig.',
     recordsCount: 'records',
+    recordsSuffix: 'records',
 
     // Placeholders
     amountPh: 'Amount',
@@ -248,6 +261,11 @@ const translations: Record<Language, Translations> = {
 
     // Select
     currencyLabel: 'HKD',
+    currencySuffix: 'HKD',
+
+    // Balances
+    totalAdvanced: 'Total Advanced',
+    totalSpent: 'Total Spent',
   },
 };
 

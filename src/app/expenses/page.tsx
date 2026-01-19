@@ -1035,7 +1035,7 @@ function ExpensesPageContent() {
                     <button
                       key={c.id}
                       onClick={() => setCategory(c.id)}
-                      className={`p-2 rounded-xl text-sm border-2 transition-all text-white ${
+                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center ${
                         isSelected ? 'font-bold scale-105' : 'hover:scale-105'
                       }`}
                       style={{
@@ -1043,7 +1043,10 @@ function ExpensesPageContent() {
                         backgroundColor: isSelected ? color : 'transparent',
                       }}
                     >
-                      <span className="mr-1">{c.icon}</span>{t[c.id as keyof typeof t] || c.label}
+                      <span className="text-lg">{c.icon}</span>
+                      <span className="text-[11px] leading-tight mt-1 px-1 text-center">
+                        {t[c.id as keyof typeof t] || c.label}
+                      </span>
                     </button>
                   );
                 })}
@@ -1340,7 +1343,7 @@ function ExpensesPageContent() {
                </div>
              ) : (
                <button onClick={handleAddExpense} className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors">
-                 新增記錄
+                 {t.addRecord}
                </button>
              )}
           </div>
@@ -1401,7 +1404,7 @@ function ExpensesPageContent() {
                         </span>
                       </div>
                       <div className="text-xs text-gray-500">
-                        總墊支: ${totalPaid.toFixed(1)} • 總消費: ${totalConsumed.toFixed(1)}
+                        {t.totalAdvanced}: ${totalPaid.toFixed(1)} • {t.totalSpent}: ${totalConsumed.toFixed(1)}
                       </div>
                     </div>
                   );
@@ -1489,7 +1492,7 @@ function ExpensesPageContent() {
                           <div className="text-2xl">{isExpanded ? "📅" : "📆"}</div>
                           <div className="text-left">
                             <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
-                            <div className="text-xs text-gray-400">{dateGroup.expenses.length} 筆記錄</div>
+                            <div className="text-xs text-gray-400">{dateGroup.expenses.length} {t.recordsSuffix}</div>
                           </div>
                         </div>
                         <div className="text-right flex items-center gap-3">
@@ -1517,12 +1520,12 @@ function ExpensesPageContent() {
                               <div key={e.id} className="flex justify-between items-center bg-[#1c1c1e] p-3 rounded-xl border border-gray-800">
                                 <div className="flex-1 min-w-0 pr-3">
                                   <div className="font-bold text-sm">
-                                    {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {e.title}
+                                    {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {t[e.category as keyof typeof t] || e.title}
                                   </div>
                                   <div className="text-xs text-gray-500 mt-0.5">
-                                    {data.members.find(m => m.id === e.payerId)?.name} 付款 • {beneficiariesText}
+                                    {data.members.find(m => m.id === e.payerId)?.name} {t.paidSuffix} • {beneficiariesText}
                                     {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
-                                      <span className="ml-1 text-gray-600">(原本 {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
+                                      <span className="ml-1 text-gray-600">({t.origPrefix} {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
                                     )}
                                   </div>
                                   {e.note && (
