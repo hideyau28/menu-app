@@ -909,8 +909,13 @@ function ExpensesPageContent() {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
-            <div className="mb-2 text-xl">🚀</div>
-            <div>正在讀取旅程...</div>
+            <div className="mb-4 text-6xl animate-bounce">✈️</div>
+            <div className="text-lg font-bold mb-2">旅程記帳</div>
+            <div className="flex items-center gap-2 text-gray-500">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
+            </div>
         </div>
       </div>
     );
@@ -945,14 +950,21 @@ function ExpensesPageContent() {
   // 情況 C: 沒有 code -> 顯示「建立新旅程」
   if (!code) {
     return (
-      <div className="min-h-screen bg-black p-4 pt-12 text-white pb-20">
+      <div className="min-h-screen bg-black p-4 pt-12 text-white pb-20 relative overflow-hidden">
+        {/* Background decorative orbs */}
+        <div className="fixed top-20 -left-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
+          style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
+        />
+        <div className="fixed bottom-20 -right-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
+          style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)' }}
+        />
         <Toaster position="bottom-center" theme="dark" richColors expand={false} />
-        <div className="max-w-md mx-auto">
-            {/* #5: Better header */}
+        <div className="max-w-md mx-auto relative">
+            {/* Header */}
             <div className="text-center mb-8">
-              <div className="text-5xl mb-3">✈️</div>
-              <h1 className="text-3xl font-bold">旅程記帳</h1>
-              <p className="text-gray-500 text-sm mt-1">輕鬆分帳，旅途無憂</p>
+              <div className="text-6xl mb-3" style={{ filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}>✈️</div>
+              <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">旅程記帳</h1>
+              <p className="text-gray-500 text-sm mt-2">輕鬆分帳，旅途無憂</p>
             </div>
 
             {/* #1: Join existing trip */}
@@ -1118,38 +1130,38 @@ function ExpensesPageContent() {
             <div className="grid grid-cols-5 gap-2 mb-4">
               <button
                 onClick={() => setShowFavoritesModal(true)}
-                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
                 title="如何收藏此 App"
               >
-                <Star className="w-6 h-6" />
+                <Star className="w-5 h-5" />
               </button>
               <button
                 onClick={handleExportExcel}
-                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
                 title="匯出為 Excel 文件"
               >
-                <FileSpreadsheet className="w-6 h-6" />
+                <FileSpreadsheet className="w-5 h-5" />
               </button>
               <button
                 onClick={handleShareLink}
-                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-blue-600/30 to-blue-700/30 rounded-2xl text-blue-400 hover:from-blue-600/50 hover:to-blue-700/50 transition-all active:scale-95 border border-blue-500/20"
                 title="分享連結"
               >
-                <Share2 className="w-6 h-6" />
+                <Share2 className="w-5 h-5" />
               </button>
               <button
                 onClick={() => router.push('/expenses')}
-                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
                 title="建立新旅程"
               >
-                <FolderPlus className="w-6 h-6" />
+                <FolderPlus className="w-5 h-5" />
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="aspect-square flex items-center justify-center p-3 bg-gray-800/80 rounded-2xl text-gray-300 hover:bg-gray-700 transition-colors"
+                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
                 title="重新整理頁面"
               >
-                <RotateCw className="w-6 h-6" />
+                <RotateCw className="w-5 h-5" />
               </button>
             </div>
             {/* Title with Language Toggle */}
@@ -1214,52 +1226,74 @@ function ExpensesPageContent() {
             </div>
           )}
 
-          {/* Total Card */}
-          <div className="mb-6 p-6 bg-[#1c1c1e] rounded-3xl shadow-lg border border-gray-800">
-            <div className="text-gray-400 text-sm mb-1">{t.totalExpense}</div>
-            <div className="text-4xl font-bold text-white">
-                HKD {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toFixed(2)}
-            </div>
-            {/* #6: Per-person average */}
-            {data.members.length > 0 && data.expenses.length > 0 && (
-              <div className="text-sm text-gray-500 mt-1">
-                👤 人均 ≈ HKD {(data.expenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}
+          {/* Total Card - Premium Gradient */}
+          <div className="mb-6 p-6 rounded-3xl shadow-lg border border-gray-700/50 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            }}
+          >
+            {/* Subtle glow orb */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-20"
+              style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
+            />
+            <div className="relative">
+              <div className="text-blue-300/70 text-sm mb-1">{t.totalExpense}</div>
+              <div className="text-4xl font-extrabold text-white tracking-tight">
+                  <span className="text-blue-300/60 text-2xl mr-1">HKD</span>
+                  {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
               </div>
-            )}
-
-            {/* Rainbow Proportion Bar */}
-            {data.expenses.length > 0 && (() => {
-              const total = data.expenses.reduce((s, e) => s + e.amountHKD, 0);
-              if (total === 0) return null;
-
-              // Calculate category totals
-              const categoryTotals = CATEGORIES.map(cat => ({
-                id: cat.id,
-                label: cat.label,
-                amount: data.expenses
-                  .filter(e => e.category === cat.id)
-                  .reduce((s, e) => s + e.amountHKD, 0),
-              })).filter(c => c.amount > 0);
-
-              if (categoryTotals.length === 0) return null;
-
-              return (
-                <div className="mt-4">
-                  <div className="flex h-2 rounded-full overflow-hidden">
-                    {categoryTotals.map(cat => (
-                      <div
-                        key={cat.id}
-                        style={{
-                          width: `${(cat.amount / total) * 100}%`,
-                          backgroundColor: CATEGORY_COLORS[cat.id] || '#6b7280'
-                        }}
-                        title={`${cat.label}: $${cat.amount.toFixed(1)}`}
-                      />
-                    ))}
-                  </div>
+              {/* Per-person average + record count */}
+              {data.members.length > 0 && data.expenses.length > 0 && (
+                <div className="flex gap-3 mt-2 text-sm text-blue-200/50">
+                  <span>👤 人均 ≈ ${(data.expenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}</span>
+                  <span>📝 {data.expenses.length} 筆</span>
                 </div>
-              );
-            })()}
+              )}
+
+              {/* Rainbow Proportion Bar + Category Legend */}
+              {data.expenses.length > 0 && (() => {
+                const total = data.expenses.reduce((s, e) => s + e.amountHKD, 0);
+                if (total === 0) return null;
+
+                const categoryTotals = CATEGORIES.map(cat => ({
+                  id: cat.id,
+                  label: cat.label,
+                  icon: cat.icon,
+                  amount: data.expenses
+                    .filter(e => e.category === cat.id)
+                    .reduce((s, e) => s + e.amountHKD, 0),
+                })).filter(c => c.amount > 0);
+
+                if (categoryTotals.length === 0) return null;
+
+                return (
+                  <div className="mt-4">
+                    <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
+                      {categoryTotals.map(cat => (
+                        <div
+                          key={cat.id}
+                          style={{
+                            width: `${(cat.amount / total) * 100}%`,
+                            backgroundColor: CATEGORY_COLORS[cat.id] || '#6b7280'
+                          }}
+                          className="transition-all duration-500"
+                        />
+                      ))}
+                    </div>
+                    {/* Category Legend */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      {categoryTotals.map(cat => (
+                        <div key={cat.id} className="flex items-center gap-1 text-xs text-gray-400">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
+                          <span>{cat.icon} {cat.label}</span>
+                          <span className="text-gray-600">{((cat.amount / total) * 100).toFixed(0)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
 
           {/* Add Expense Form - Moved to top */}
@@ -1628,6 +1662,7 @@ function ExpensesPageContent() {
                 {Object.entries(balances).map(([id, bal]) => {
                   const member = data.members.find((m) => m.id === id);
                   if (!member) return null;
+                  const memberIdx = data.members.findIndex(m => m.id === id);
 
                   // Calculate 總墊支 (Total Paid)
                   const totalPaid = data.expenses
@@ -1658,16 +1693,43 @@ function ExpensesPageContent() {
                       return sum + share;
                     }, 0);
 
+                  const maxAmount = Math.max(totalPaid, totalConsumed, 1);
+
                   return (
                     <div key={id} className="bg-black p-3 rounded-xl">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-medium">{member.name}</span>
-                        <span className={bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}>
-                          {bal > 0 ? `${t.status_get} ${bal.toFixed(1)}` : bal < 0 ? `${t.status_pay} ${Math.abs(bal).toFixed(1)}` : "平手"}
-                        </span>
+                      <div className="flex items-center gap-3 mb-2">
+                        {/* Avatar */}
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                          style={{ backgroundColor: getAvatarColor(memberIdx) }}
+                        >
+                          {getAvatarText(member.name)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium truncate">{member.name}</span>
+                            <span className={`text-sm font-bold ${bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}`}>
+                              {bal > 0 ? `+$${bal.toFixed(1)}` : bal < 0 ? `-$${Math.abs(bal).toFixed(1)}` : "$0"}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {t.totalAdvanced}: ${totalPaid.toFixed(1)} • {t.totalSpent}: ${totalConsumed.toFixed(1)}
+                      {/* Visual bars */}
+                      <div className="space-y-1 pl-12">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-600 w-6">{t.totalAdvanced?.slice(0,1) || '墊'}</span>
+                          <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalPaid / maxAmount) * 100}%` }} />
+                          </div>
+                          <span className="text-[10px] text-gray-500 w-12 text-right">${totalPaid.toFixed(1)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-600 w-6">{t.totalSpent?.slice(0,1) || '花'}</span>
+                          <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalConsumed / maxAmount) * 100}%` }} />
+                          </div>
+                          <span className="text-[10px] text-gray-500 w-12 text-right">${totalConsumed.toFixed(1)}</span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1691,20 +1753,43 @@ function ExpensesPageContent() {
             {settlementsExpanded && (
               <div className="px-4 pb-4">
                 {settlements.length === 0 ? (
-                  <div className="text-center text-gray-500 py-3">暫無須結算</div>
+                  <div className="text-center py-6">
+                    <div className="text-3xl mb-2">🎉</div>
+                    <div className="text-gray-500 text-sm">暫無須結算</div>
+                  </div>
                 ) : (
                   <div className="space-y-2">
-                    {settlements.map((s, idx) => (
+                    {settlements.map((s, idx) => {
+                      const fromMember = data.members.find(m => m.name === s.from);
+                      const toMember = data.members.find(m => m.name === s.to);
+                      const fromIdx = fromMember ? data.members.indexOf(fromMember) : 0;
+                      const toIdx = toMember ? data.members.indexOf(toMember) : 0;
+                      return (
                       <div key={idx} className="flex items-center gap-3 bg-black p-3 rounded-xl">
-                        <span className="text-lg">💸</span>
-                        <div className="flex-1">
-                          <span className="font-medium text-red-400">{s.from}</span>
-                          <span className="text-gray-400 mx-2">→</span>
-                          <span className="font-medium text-green-400">{s.to}</span>
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-red-500/30"
+                          style={{ backgroundColor: getAvatarColor(fromIdx) }}
+                        >
+                          {getAvatarText(s.from)}
                         </div>
-                        <span className="font-bold text-yellow-400">${s.amount.toFixed(1)}</span>
+                        <div className="flex-1 flex items-center gap-2">
+                          <span className="text-sm font-medium text-red-400 truncate">{s.from}</span>
+                          <div className="flex-1 border-t border-dashed border-gray-700 relative">
+                            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] text-yellow-500 font-bold bg-black px-1">
+                              ${s.amount.toFixed(1)}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-green-400 truncate">{s.to}</span>
+                        </div>
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-green-500/30"
+                          style={{ backgroundColor: getAvatarColor(toIdx) }}
+                        >
+                          {getAvatarText(s.to)}
+                        </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1726,7 +1811,11 @@ function ExpensesPageContent() {
             {recordsExpanded && (
               <div className="px-4 pb-4">
                 {expensesByDate.length === 0 && (
-                  <div className="text-center text-gray-500 py-8">暫無記錄</div>
+                  <div className="text-center py-10">
+                    <div className="text-5xl mb-3">📭</div>
+                    <div className="text-gray-500 mb-1">暫無記錄</div>
+                    <div className="text-xs text-gray-700">喺上面新增第一筆支出吧！</div>
+                  </div>
                 )}
 
                 {/* Date Cards */}
@@ -1744,22 +1833,26 @@ function ExpensesPageContent() {
                     };
 
                   return (
-                    <div key={dateGroup.date} className="border border-gray-800 rounded-xl overflow-hidden">
-                      {/* Date Header Card - Native Button for iOS Safari Compatibility */}
+                    <div key={dateGroup.date} className="border border-gray-800 rounded-2xl overflow-hidden">
+                      {/* Date Header Card */}
                       <button
                         type="button"
                         onClick={handleToggle}
-                        className="w-full p-4 bg-black hover:bg-gray-900 transition-colors flex justify-between items-center"
+                        className="w-full p-4 bg-black hover:bg-gray-900/80 transition-colors flex justify-between items-center"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="text-2xl">{isExpanded ? "📅" : "📆"}</div>
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-lg">
+                            {isExpanded ? "📅" : "📆"}
+                          </div>
                           <div className="text-left">
                             <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
-                            <div className="text-xs text-gray-400">{dateGroup.expenses.length} {t.recordsSuffix}</div>
+                            <div className="text-xs text-gray-500">{dateGroup.expenses.length} {t.recordsSuffix}</div>
                           </div>
                         </div>
                         <div className="text-right flex items-center gap-3">
-                          <div className="font-bold text-white">HKD ${dateGroup.total.toFixed(2)}</div>
+                          <div>
+                            <div className="font-bold text-white text-sm">${dateGroup.total.toFixed(1)}</div>
+                          </div>
                           <ChevronDown
                             className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                           />
@@ -1780,7 +1873,10 @@ function ExpensesPageContent() {
                                 }).filter(Boolean).join(", ");
 
                             return (
-                              <div key={e.id} className="flex justify-between items-center bg-[#1c1c1e] p-3 rounded-xl border border-gray-800">
+                              <div key={e.id} className="flex items-stretch bg-[#1c1c1e] rounded-xl border border-gray-800 overflow-hidden">
+                                {/* Category color indicator */}
+                                <div className="w-1 flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[e.category] || '#6b7280' }} />
+                                <div className="flex justify-between items-center flex-1 p-3 min-w-0">
                                 <div className="flex-1 min-w-0 pr-3">
                                   <div className="font-bold text-sm">
                                     {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {t[e.category as keyof typeof t] || e.title}
@@ -1814,6 +1910,7 @@ function ExpensesPageContent() {
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
+                                </div>
                                 </div>
                               </div>
                             );
