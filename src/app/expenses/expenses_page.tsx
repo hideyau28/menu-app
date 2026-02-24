@@ -115,6 +115,10 @@ function ExpensesPageContent() {
 
   // Modal States
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Date Grouping State - Multiple dates can be expanded at the same time
   const [expandedDates, setExpandedDates] = useState<string[]>([]);
@@ -219,7 +223,7 @@ function ExpensesPageContent() {
   // Load exchange rates from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedRates = localStorage.getItem('exchange_rates');
+      const savedRates = localStorage.getItem('tripUtility_exchangeRates');
       if (savedRates) {
         try {
           setExchangeRates(JSON.parse(savedRates));
@@ -233,18 +237,21 @@ function ExpensesPageContent() {
   // Save exchange rates to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined' && Object.keys(exchangeRates).length > 0) {
-      localStorage.setItem('exchange_rates', JSON.stringify(exchangeRates));
+      localStorage.setItem('tripUtility_exchangeRates', JSON.stringify(exchangeRates));
     }
   }, [exchangeRates]);
 
   // Reset custom splits when participants change or split mode changes
+  // Fix #2: Use functional update to avoid stale closure
   useEffect(() => {
     if (splitMode === 'custom' && participantIds.length > 0) {
-      const newSplits: Record<string, string> = {};
-      participantIds.forEach(id => {
-        newSplits[id] = customSplits[id] || '';
+      setCustomSplits(prev => {
+        const newSplits: Record<string, string> = {};
+        participantIds.forEach(id => {
+          newSplits[id] = prev[id] || '';
+        });
+        return newSplits;
       });
-      setCustomSplits(newSplits);
     }
   }, [participantIds, splitMode]);
 
@@ -260,17 +267,29 @@ function ExpensesPageContent() {
   };
 
   // 3. 建立旅程 (Create Trip)
-  // 這裡移除了 localStorage.setItem
+  // Fix #10: Added input sanitization
   const handleCreateTrip = async () => {
+    const trimmedName = tripName.trim();
     const members = memberNames.map((n) => n.trim()).filter(Boolean);
-    if (!tripName || members.length < 2) {
+
+    if (!trimmedName || members.length < 2) {
       showToast("請輸入旅程名稱及最少 2 位成員", "error");
+      return;
+    }
+
+    if (trimmedName.length > 50) {
+      showToast("旅程名稱最多 50 字", "error");
+      return;
+    }
+
+    if (members.some(m => m.length > 20)) {
+      showToast("成員名稱最多 20 字", "error");
       return;
     }
 
     try {
       setLoading(true);
-      const res = await createTrip(tripName, members);
+      const res = await createTrip(trimmedName, members);
       // 成功後直接跳轉，不需要存 localStorage，因為跳轉後的 URL 包含 code，會觸發上面的 useEffect
       router.replace(`/expenses?code=${res.code}`);
     } catch (e) {
@@ -311,6 +330,12 @@ function ExpensesPageContent() {
     const finalCurrency = getFinalCurrency();
     const amountValue = parseFloat(amount);
 
+    // Fix #3: Validate NaN and non-positive amounts
+    if (isNaN(amountValue) || amountValue <= 0) {
+      showToast("請輸入有效金額", "error");
+      return;
+    }
+
     // Validate exchange rate for non-HKD currencies
     if (finalCurrency !== 'HKD') {
       const rate = parseFloat(exchangeRates[finalCurrency] || '0');
@@ -331,7 +356,7 @@ function ExpensesPageContent() {
       const diff = Math.abs(amountHKD - splitTotal);
 
       if (diff > 1) {
-        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(2)})`, "error");
+        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(1)})`, "error");
         return;
       }
 
@@ -373,18 +398,21 @@ function ExpensesPageContent() {
     }
   };
 
-  // 5. 刪除支出 (Delete Expense)
-  const handleDelete = async (expenseId: string) => {
+  // 5. 刪除支出 (Delete Expense) - Fix #9: Use custom modal
+  const handleDelete = (expenseId: string) => {
     if (!data) return;
-    if (!confirm("確定刪除?")) return;
-
-    try {
-      await deleteExpense(data.code, expenseId);
-      await reloadTrip();
-      showToast("已刪除");
-    } catch (e) {
-      showToast("刪除失敗", "error");
-    }
+    setConfirmModal({
+      message: "確定刪除此記錄？",
+      onConfirm: async () => {
+        try {
+          await deleteExpense(data.code, expenseId);
+          await reloadTrip();
+          showToast("已刪除");
+        } catch (e) {
+          showToast("刪除失敗", "error");
+        }
+      },
+    });
   };
 
   // 6. 編輯支出 (Edit Expense)
@@ -473,6 +501,12 @@ function ExpensesPageContent() {
     const finalCurrency = getFinalCurrency();
     const amountValue = parseFloat(amount);
 
+    // Fix #3: Validate NaN and non-positive amounts
+    if (isNaN(amountValue) || amountValue <= 0) {
+      showToast("請輸入有效金額", "error");
+      return;
+    }
+
     // Validate exchange rate for non-HKD currencies
     if (finalCurrency !== 'HKD') {
       const rate = parseFloat(exchangeRates[finalCurrency] || '0');
@@ -493,7 +527,7 @@ function ExpensesPageContent() {
       const diff = Math.abs(amountHKD - splitTotal);
 
       if (diff > 1) {
-        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(2)})`, "error");
+        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(1)})`, "error");
         return;
       }
 
@@ -543,22 +577,26 @@ function ExpensesPageContent() {
       '確定刪除此記錄?',
       '',
       `📝 ${expense.title}`,
-      `💰 HKD $${expense.amountHKD.toFixed(2)}`,
+      `💰 HKD $${expense.amountHKD.toFixed(1)}`,
       `📅 ${expense.date}`,
       `👤 ${expense.payerName}`,
     ].join('\n');
 
-    if (!confirm(confirmMsg)) return;
-
-    try {
-      await deleteExpense(data.code, editingExpenseId);
-      handleCancelEdit();
-      await reloadTrip();
-      showToast("已刪除", "success");
-    } catch (e) {
-      console.error(e);
-      showToast("刪除失敗", "error");
-    }
+    // Fix #9: Use custom modal
+    setConfirmModal({
+      message: confirmMsg,
+      onConfirm: async () => {
+        try {
+          await deleteExpense(data!.code, editingExpenseId!);
+          handleCancelEdit();
+          await reloadTrip();
+          showToast("已刪除", "success");
+        } catch (e) {
+          console.error(e);
+          showToast("刪除失敗", "error");
+        }
+      },
+    });
   };
 
   // 10. 匯出 Excel (Export Excel with 3 Sheets)
@@ -852,17 +890,26 @@ function ExpensesPageContent() {
 
             <div className="space-y-2 mb-6">
                 {memberNames.map((n, i) => (
-                <input
-                    key={i}
-                    className="w-full p-4 bg-[#1c1c1e] rounded-xl border border-gray-800"
-                    placeholder={`成員 ${i + 1}`}
-                    value={n}
-                    onChange={(e) => {
-                    const next = [...memberNames];
-                    next[i] = e.target.value;
-                    setMemberNames(next);
-                    }}
-                />
+                <div key={i} className="flex gap-2">
+                    <input
+                        className="flex-1 p-4 bg-[#1c1c1e] rounded-xl border border-gray-800"
+                        placeholder={`成員 ${i + 1}`}
+                        value={n}
+                        onChange={(e) => {
+                        const next = [...memberNames];
+                        next[i] = e.target.value;
+                        setMemberNames(next);
+                        }}
+                    />
+                    {memberNames.length > 2 && (
+                        <button
+                          onClick={() => setMemberNames(memberNames.filter((_, idx) => idx !== i))}
+                          className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-red-400"
+                        >
+                          ✕
+                        </button>
+                    )}
+                </div>
                 ))}
             </div>
 
@@ -893,6 +940,34 @@ function ExpensesPageContent() {
         richColors
         expand={false}
       />
+
+      {/* Confirm Modal (#9) */}
+      {confirmModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
+          <div className="bg-[#2c2c2e] rounded-2xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 text-center whitespace-pre-line text-sm">
+              {confirmModal.message}
+            </div>
+            <div className="flex border-t border-gray-700">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 py-3 text-blue-400 font-medium border-r border-gray-700 active:bg-gray-700/50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+                className="flex-1 py-3 text-red-400 font-bold active:bg-gray-700/50"
+              >
+                確定刪除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-md mx-auto">
           {/* Header */}
           <div className="mb-6">
@@ -1308,8 +1383,8 @@ function ExpensesPageContent() {
                       if (total > 0 && splitTotal > 0) {
                         return (
                           <div className={`text-xs mt-2 ${diff <= 1 ? 'text-green-400' : 'text-red-400'}`}>
-                            已分配: ${splitTotal.toFixed(2)} / ${total.toFixed(2)}
-                            {diff > 1 && ` (差額: $${diff.toFixed(2)})`}
+                            已分配: ${splitTotal.toFixed(1)} / ${total.toFixed(1)}
+                            {diff > 1 && ` (差額: $${diff.toFixed(1)})`}
                           </div>
                         );
                       }

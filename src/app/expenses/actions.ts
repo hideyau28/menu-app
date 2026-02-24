@@ -12,7 +12,23 @@ function generateCode(): string {
   return code;
 }
 
+// Fix #1: Removed post-COMMIT verify logic that could cause double-ROLLBACK
+// Fix #10: Added server-side input sanitization
 export async function createTrip(name: string, memberNames: string[]) {
+  // Server-side validation (#10)
+  const trimmedName = name.trim();
+  if (!trimmedName || trimmedName.length > 50) {
+    throw new Error("Invalid trip name");
+  }
+
+  const trimmedMembers = memberNames.map(n => n.trim()).filter(Boolean);
+  if (trimmedMembers.length < 2) {
+    throw new Error("At least 2 members required");
+  }
+  if (trimmedMembers.some(m => m.length > 20)) {
+    throw new Error("Member name too long");
+  }
+
   const client = await getClient();
   try {
     await client.query("BEGIN");
@@ -24,7 +40,7 @@ export async function createTrip(name: string, memberNames: string[]) {
       try {
         const tripResult = await client.query<{ id: string }>(
           "INSERT INTO trips (name, trip_code) VALUES ($1, $2) RETURNING id",
-          [name, code]
+          [trimmedName, code]
         );
         tripId = tripResult.rows[0].id;
         break;
@@ -38,7 +54,7 @@ export async function createTrip(name: string, memberNames: string[]) {
       }
     }
 
-    for (const memberName of memberNames) {
+    for (const memberName of trimmedMembers) {
       await client.query(
         "INSERT INTO members (trip_id, name) VALUES ($1, $2)",
         [tripId, memberName]
@@ -46,23 +62,7 @@ export async function createTrip(name: string, memberNames: string[]) {
     }
 
     await client.query("COMMIT");
-
-    // Wait 1 second for DB sync
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Double-check verification: ensure trip was actually written
-    const verifyResult = await client.query(
-      "SELECT id, name, trip_code FROM trips WHERE trip_code = $1",
-      [code]
-    );
-
-    if (verifyResult.rows.length === 0) {
-      throw new Error("DB Write Failed: Trip not found after commit");
-    }
-
-    // Revalidate the expenses page
     revalidatePath('/expenses');
-
     return { code };
   } catch (e: any) {
     await client.query("ROLLBACK");
@@ -73,6 +73,7 @@ export async function createTrip(name: string, memberNames: string[]) {
   }
 }
 
+// Fix #5: Batch query for participants instead of N+1
 export async function getTripByCode(code: string) {
   const tripResult = await query(
     "SELECT id, name, trip_code FROM trips WHERE trip_code = $1",
@@ -105,21 +106,7 @@ export async function getTripByCode(code: string) {
     [trip.id]
   );
 
-  const expenses: Array<{
-    id: string;
-    title: string;
-    category?: string | null;
-    note?: string | null;
-    date: string;
-    payerId: string;
-    payerName: string;
-    amountHKD: number;
-    participants: Array<string | { id: string; customAmount?: number }>;
-    originalCurrency?: string | null;
-    originalAmount?: number | null;
-  }> = [];
-
-  for (const expRow of expensesResult.rows as Array<{
+  const expenseRows = expensesResult.rows as Array<{
     id: string;
     title: string;
     category: string | null;
@@ -130,27 +117,41 @@ export async function getTripByCode(code: string) {
     original_currency: string | null;
     original_amount_cents: number | null;
     payer_name: string;
-  }>) {
+  }>;
+
+  // Batch query: 一次過撈所有 participants (#5)
+  const expenseIds = expenseRows.map(e => e.id);
+  let allParticipants: Array<{ expense_id: string; member_id: string; amount_cents: number | null }> = [];
+
+  if (expenseIds.length > 0) {
     const participantsResult = await query(
-      "SELECT member_id, amount_cents FROM expense_participants WHERE expense_id = $1",
-      [expRow.id]
+      "SELECT expense_id, member_id, amount_cents FROM expense_participants WHERE expense_id = ANY($1)",
+      [expenseIds]
     );
+    allParticipants = participantsResult.rows as typeof allParticipants;
+  }
 
-    const participants = (participantsResult.rows as Array<{ member_id: string; amount_cents: number | null }>).map(
-      (p: { member_id: string; amount_cents: number | null }) => {
-        // If amount_cents is null, return just the ID (equal split)
-        // Otherwise, return object with customAmount
-        if (p.amount_cents === null) {
-          return p.member_id;
-        }
-        return {
-          id: p.member_id,
-          customAmount: p.amount_cents / 100,
-        };
+  // Group by expense_id
+  const participantsByExpense = new Map<string, typeof allParticipants>();
+  for (const p of allParticipants) {
+    const list = participantsByExpense.get(p.expense_id) || [];
+    list.push(p);
+    participantsByExpense.set(p.expense_id, list);
+  }
+
+  const expenses = expenseRows.map(expRow => {
+    const rawParticipants = participantsByExpense.get(expRow.id) || [];
+    const participants = rawParticipants.map(p => {
+      if (p.amount_cents === null) {
+        return p.member_id;
       }
-    );
+      return {
+        id: p.member_id,
+        customAmount: p.amount_cents / 100,
+      };
+    });
 
-    expenses.push({
+    return {
       id: expRow.id,
       title: expRow.title,
       category: expRow.category,
@@ -159,11 +160,11 @@ export async function getTripByCode(code: string) {
       payerId: expRow.payer_member_id,
       payerName: expRow.payer_name,
       amountHKD: expRow.total_amount_hkd_cents / 100,
-      participants: participants,
+      participants,
       originalCurrency: expRow.original_currency,
       originalAmount: expRow.original_amount_cents ? expRow.original_amount_cents / 100 : null,
-    });
-  }
+    };
+  });
 
   return {
     id: trip.id,
@@ -247,21 +248,42 @@ export async function addExpense(payload: {
   }
 }
 
+// Fix #4: Added transaction and ownership check (consistent with updateExpense)
 export async function deleteExpense(code: string, expenseId: string) {
-  const tripResult = await query(
-    "SELECT id FROM trips WHERE trip_code = $1",
-    [code]
-  );
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
 
-  if (tripResult.rows.length === 0) throw new Error("Trip not found");
+    const tripResult = await client.query<{ id: string }>(
+      "SELECT id FROM trips WHERE trip_code = $1",
+      [code]
+    );
+    if (tripResult.rows.length === 0) {
+      throw new Error("Trip not found");
+    }
+    const tripId = tripResult.rows[0].id;
 
-  const tripId = (tripResult.rows[0] as { id: string }).id;
+    const expenseCheck = await client.query(
+      "SELECT id FROM expenses WHERE id = $1 AND trip_id = $2",
+      [expenseId, tripId]
+    );
+    if (expenseCheck.rows.length === 0) {
+      throw new Error("Expense not found or does not belong to this trip");
+    }
 
-  await query("DELETE FROM expenses WHERE id = $1 AND trip_id = $2", [
-    expenseId,
-    tripId,
-  ]);
-  revalidatePath('/expenses');
+    await client.query(
+      "DELETE FROM expenses WHERE id = $1 AND trip_id = $2",
+      [expenseId, tripId]
+    );
+
+    await client.query("COMMIT");
+    revalidatePath('/expenses');
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateExpense(payload: {
