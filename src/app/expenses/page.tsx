@@ -1875,7 +1875,7 @@ function ExpensesPageContent() {
                             return (
                               <div key={e.id} className="flex items-stretch bg-[#1c1c1e] rounded-xl border border-gray-800 overflow-hidden">
                                 {/* Category color indicator */}
-                                <div className="w-1 flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[e.category] || '#6b7280' }} />
+                                <div className="w-1 flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[e.category || 'other'] || '#6b7280' }} />
                                 <div className="flex justify-between items-center flex-1 p-3 min-w-0">
                                 <div className="flex-1 min-w-0 pr-3">
                                   <div className="font-bold text-sm">
