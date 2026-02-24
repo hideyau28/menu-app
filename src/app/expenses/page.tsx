@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense } from "./actions";
 import { toast, Toaster } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check } from 'lucide-react';
+import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Trash2 } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { enUS, zhTW } from 'date-fns/locale';
@@ -107,6 +107,13 @@ function ExpensesPageContent() {
 
   // Editing State
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+
+  // UI States
+  const [submitting, setSubmitting] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [recentTrips, setRecentTrips] = useState<Array<{ code: string; name: string; date: string }>>([]);
+  const [fetchingRate, setFetchingRate] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
 
   // Accordion States
   const [balancesExpanded, setBalancesExpanded] = useState(false);
@@ -231,8 +238,26 @@ function ExpensesPageContent() {
           console.error('Failed to parse exchange rates:', e);
         }
       }
+      // #9: Load recent trips
+      const saved = localStorage.getItem('tripUtility_recentTrips');
+      if (saved) {
+        try { setRecentTrips(JSON.parse(saved)); } catch {}
+      }
     }
   }, []);
+
+  // #9: Save current trip to recent trips list
+  useEffect(() => {
+    if (data && typeof window !== 'undefined') {
+      const entry = { code: data.code, name: data.name, date: new Date().toISOString().slice(0, 10) };
+      setRecentTrips(prev => {
+        const filtered = prev.filter(t => t.code !== data.code);
+        const updated = [entry, ...filtered].slice(0, 10);
+        localStorage.setItem('tripUtility_recentTrips', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [data?.code]);
 
   // Save exchange rates to localStorage whenever it changes
   useEffect(() => {
@@ -288,6 +313,7 @@ function ExpensesPageContent() {
     }
 
     try {
+      setSubmitting(true);
       setLoading(true);
       const res = await createTrip(trimmedName, members);
       // 成功後直接跳轉，不需要存 localStorage，因為跳轉後的 URL 包含 code，會觸發上面的 useEffect
@@ -295,6 +321,7 @@ function ExpensesPageContent() {
     } catch (e) {
       showToast("建立失敗，請檢查網絡", "error");
       setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -369,6 +396,7 @@ function ExpensesPageContent() {
     }
 
     try {
+      setSubmitting(true);
       await addExpense({
         code: data.code,
         title: CATEGORIES.find((c) => c.id === category)?.label ?? "其他",
@@ -383,6 +411,9 @@ function ExpensesPageContent() {
         customSplits: splitMode === 'custom' ? customSplits : undefined,
       });
 
+      // #2: Auto-expand the date of the newly added expense
+      setExpandedDates(prev => prev.includes(date) ? prev : [...prev, date]);
+
       setAmount("");
       setNote("");
       setCurrency('HKD'); // Reset to HKD
@@ -395,6 +426,8 @@ function ExpensesPageContent() {
       showToast("已新增");
     } catch (e) {
       showToast("新增失敗", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -541,6 +574,7 @@ function ExpensesPageContent() {
     }
 
     try {
+      setSubmitting(true);
       await updateExpense({
         code: data.code,
         expenseId: editingExpenseId,
@@ -562,6 +596,8 @@ function ExpensesPageContent() {
     } catch (e) {
       console.error(e);
       showToast("更新失敗", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -834,6 +870,38 @@ function ExpensesPageContent() {
     });
   };
 
+  // #10: Auto-fetch exchange rate
+  const fetchExchangeRate = async (currencyCode: string) => {
+    if (!currencyCode || currencyCode === 'HKD' || currencyCode === 'OTHER') return;
+    setFetchingRate(true);
+    try {
+      const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${currencyCode}`);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      const rate = data.rates?.HKD;
+      if (rate) {
+        setExchangeRates(prev => ({ ...prev, [currencyCode]: rate.toString() }));
+        showToast(`已取得 ${currencyCode} → HKD 匯率`);
+      } else {
+        showToast("找不到匯率", "error");
+      }
+    } catch {
+      showToast("匯率獲取失敗，請手動輸入", "error");
+    } finally {
+      setFetchingRate(false);
+    }
+  };
+
+  // #1: Join trip by code
+  const handleJoinTrip = () => {
+    const trimmed = joinCode.trim().toUpperCase();
+    if (!trimmed) {
+      showToast("請輸入旅程碼", "error");
+      return;
+    }
+    router.push(`/expenses?code=${trimmed}`);
+  };
+
   // --- 畫面渲染邏輯 ---
 
   // 情況 A: 正在跟 Server 拿資料
@@ -877,9 +945,65 @@ function ExpensesPageContent() {
   // 情況 C: 沒有 code -> 顯示「建立新旅程」
   if (!code) {
     return (
-      <div className="min-h-screen bg-black p-4 text-white pb-20">
+      <div className="min-h-screen bg-black p-4 pt-12 text-white pb-20">
+        <Toaster position="bottom-center" theme="dark" richColors expand={false} />
         <div className="max-w-md mx-auto">
-            <h1 className="text-3xl font-bold mb-6">建立新旅程</h1>
+            {/* #5: Better header */}
+            <div className="text-center mb-8">
+              <div className="text-5xl mb-3">✈️</div>
+              <h1 className="text-3xl font-bold">旅程記帳</h1>
+              <p className="text-gray-500 text-sm mt-1">輕鬆分帳，旅途無憂</p>
+            </div>
+
+            {/* #1: Join existing trip */}
+            <div className="bg-[#1c1c1e] rounded-2xl p-4 mb-6 border border-gray-800">
+              <div className="text-sm text-gray-400 mb-2">🔗 加入旅程</div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono"
+                  placeholder="輸入旅程碼"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={8}
+                  onKeyDown={(e) => e.key === 'Enter' && handleJoinTrip()}
+                />
+                <button
+                  onClick={handleJoinTrip}
+                  className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
+                >
+                  加入
+                </button>
+              </div>
+            </div>
+
+            {/* #9: Recent trips */}
+            {recentTrips.length > 0 && (
+              <div className="mb-6">
+                <div className="text-sm text-gray-400 mb-2">📋 最近旅程</div>
+                <div className="space-y-2">
+                  {recentTrips.map(trip => (
+                    <button
+                      key={trip.code}
+                      onClick={() => router.push(`/expenses?code=${trip.code}`)}
+                      className="w-full flex items-center justify-between p-3 bg-[#1c1c1e] rounded-xl border border-gray-800 hover:bg-gray-800/80 transition-colors text-left"
+                    >
+                      <div>
+                        <div className="font-medium">{trip.name}</div>
+                        <div className="text-xs text-gray-500 font-mono">{trip.code}</div>
+                      </div>
+                      <div className="text-xs text-gray-600">{trip.date}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex-1 border-t border-gray-800" />
+              <span className="text-gray-600 text-xs">或者建立新旅程</span>
+              <div className="flex-1 border-t border-gray-800" />
+            </div>
 
             <input
             className="w-full p-4 bg-[#1c1c1e] rounded-xl mb-4 border border-gray-800"
@@ -887,6 +1011,21 @@ function ExpensesPageContent() {
             value={tripName}
             onChange={(e) => setTripName(e.target.value)}
             />
+
+            {/* #5: Member avatar preview */}
+            {memberNames.some(n => n.trim()) && (
+              <div className="flex gap-2 mb-3 px-1">
+                {memberNames.filter(n => n.trim()).map((n, i) => (
+                  <div
+                    key={i}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{ backgroundColor: getAvatarColor(i) }}
+                  >
+                    {getAvatarText(n.trim())}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="space-y-2 mb-6">
                 {memberNames.map((n, i) => (
@@ -917,8 +1056,12 @@ function ExpensesPageContent() {
                 <button onClick={() => setMemberNames([...memberNames, ""])} className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-gray-400">
                     +
                 </button>
-                <button onClick={handleCreateTrip} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold">
-                    開始旅程
+                <button
+                  onClick={handleCreateTrip}
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 建立中...</> : '🚀 開始旅程'}
                 </button>
             </div>
         </div>
@@ -1010,7 +1153,7 @@ function ExpensesPageContent() {
               </button>
             </div>
             {/* Title with Language Toggle */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl font-extrabold tracking-tight">{data.name}</h1>
               <button
                 onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
@@ -1019,6 +1162,18 @@ function ExpensesPageContent() {
                 {language === 'zh' ? 'EN' : '中'}
               </button>
             </div>
+            {/* #8: Trip code display + copy */}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(data.code)
+                  .then(() => showToast("旅程碼已複製"))
+                  .catch(() => {});
+              }}
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors mb-6"
+            >
+              <span className="font-mono tracking-widest">{data.code}</span>
+              <Copy className="w-3 h-3" />
+            </button>
           </div>
 
           {/* Favorites Modal */}
@@ -1065,6 +1220,12 @@ function ExpensesPageContent() {
             <div className="text-4xl font-bold text-white">
                 HKD {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toFixed(2)}
             </div>
+            {/* #6: Per-person average */}
+            {data.members.length > 0 && data.expenses.length > 0 && (
+              <div className="text-sm text-gray-500 mt-1">
+                👤 人均 ≈ HKD {(data.expenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}
+              </div>
+            )}
 
             {/* Rainbow Proportion Bar */}
             {data.expenses.length > 0 && (() => {
@@ -1102,7 +1263,18 @@ function ExpensesPageContent() {
           </div>
 
           {/* Add Expense Form - Moved to top */}
-          <div className="bg-[#1c1c1e] p-5 rounded-3xl border border-gray-800 mb-8 space-y-4">
+          <div ref={formRef} className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all ${
+            editingExpenseId
+              ? 'bg-[#1a1a2e] border-yellow-600/50 ring-1 ring-yellow-600/30'
+              : 'bg-[#1c1c1e] border-gray-800'
+          }`}>
+             {/* #3: Edit mode banner */}
+             {editingExpenseId && (
+               <div className="flex items-center justify-between bg-yellow-600/20 text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg -mt-1">
+                 <span>✏️ 編輯模式</span>
+                 <button onClick={handleCancelEdit} className="text-gray-400 hover:text-white">✕ 取消</button>
+               </div>
+             )}
              <div className="grid grid-cols-3 gap-2">
                 {CATEGORIES.map((c) => {
                   const color = CATEGORY_COLORS[c.id] || '#6b7280';
@@ -1216,6 +1388,14 @@ function ExpensesPageContent() {
                    }}
                    className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
                  />
+                 {/* #10: Auto-fetch button */}
+                 <button
+                   onClick={() => fetchExchangeRate(getFinalCurrency())}
+                   disabled={fetchingRate}
+                   className="px-2 py-2 bg-blue-600/20 text-blue-400 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50 whitespace-nowrap"
+                 >
+                   {fetchingRate ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚡ 自動'}
+                 </button>
                </div>
              )}
 
@@ -1398,28 +1578,35 @@ function ExpensesPageContent() {
                <div className="space-y-2">
                  <button
                    onClick={handleUpdateExpense}
-                   className="w-full py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors"
+                   disabled={submitting}
+                   className="w-full py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                  >
-                   💾 更新記錄
+                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 更新中...</> : '💾 更新記錄'}
                  </button>
                  <div className="flex gap-2">
                    <button
                      onClick={handleCancelEdit}
-                     className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors"
+                     disabled={submitting}
+                     className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
                    >
                      取消
                    </button>
                    <button
                      onClick={handleDeleteCurrentExpense}
-                     className="flex-1 py-3 bg-red-600 rounded-xl font-bold hover:bg-red-500 transition-colors"
+                     disabled={submitting}
+                     className="flex-1 py-3 bg-red-600 rounded-xl font-bold hover:bg-red-500 transition-colors disabled:opacity-50"
                    >
                      🗑️ 刪除
                    </button>
                  </div>
                </div>
              ) : (
-               <button onClick={handleAddExpense} className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors">
-                 {t.addRecord}
+               <button
+                 onClick={handleAddExpense}
+                 disabled={submitting}
+                 className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+               >
+                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 新增中...</> : t.addRecord}
                </button>
              )}
           </div>
@@ -1610,14 +1797,22 @@ function ExpensesPageContent() {
                                     </div>
                                   )}
                                 </div>
-                                <div className="text-right flex items-center gap-2 flex-shrink-0">
+                                <div className="text-right flex items-center gap-1 flex-shrink-0">
                                   <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
                                   <button
                                     onClick={() => handleEdit(e)}
-                                    className="text-lg p-2 hover:bg-blue-500/20 rounded-lg transition-colors"
+                                    className="text-lg p-1.5 hover:bg-blue-500/20 rounded-lg transition-colors"
                                     title="編輯"
                                   >
                                     ✏️
+                                  </button>
+                                  {/* #7: Direct delete button */}
+                                  <button
+                                    onClick={() => handleDelete(e.id)}
+                                    className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors text-gray-600 hover:text-red-400"
+                                    title="刪除"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
                               </div>
