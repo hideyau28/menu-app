@@ -1052,47 +1052,79 @@ function ExpensesPageContent() {
   // 情況 C: 沒有 code -> 顯示「建立新旅程」
   if (!code) {
     return (
-      <div className="min-h-screen bg-black p-4 pt-12 text-white pb-20 relative overflow-hidden">
-        {/* Background decorative orbs */}
+      <div className="min-h-screen bg-black p-4 pt-10 text-white pb-24 relative overflow-hidden">
+        {/* Animated background orbs */}
         <div
-          className="fixed top-20 -left-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
+          className="fixed top-10 -left-24 w-72 h-72 rounded-full pointer-events-none animate-pulse-glow"
           style={{
-            background: "radial-gradient(circle, #3b82f6 0%, transparent 70%)",
+            background: "radial-gradient(circle, #3b82f6 0%, transparent 65%)",
           }}
         />
         <div
-          className="fixed bottom-20 -right-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
+          className="fixed top-1/3 -right-20 w-64 h-64 rounded-full pointer-events-none animate-pulse-glow"
           style={{
-            background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)",
+            background: "radial-gradient(circle, #8b5cf6 0%, transparent 65%)",
+            animationDelay: "1s",
           }}
         />
+        <div
+          className="fixed bottom-24 left-1/4 w-48 h-48 rounded-full pointer-events-none animate-pulse-glow"
+          style={{
+            background: "radial-gradient(circle, #06b6d4 0%, transparent 65%)",
+            animationDelay: "2s",
+          }}
+        />
+
         <Toaster
           position="bottom-center"
           theme="dark"
           richColors
           expand={false}
         />
+
         <div className="max-w-md mx-auto relative">
-          {/* Header */}
-          <div className="text-center mb-8">
+          {/* Hero Header */}
+          <div className="text-center mb-10 animate-fade-in-up">
             <div
-              className="text-6xl mb-3"
-              style={{ filter: "drop-shadow(0 0 20px rgba(59,130,246,0.3))" }}
+              className="text-7xl mb-4 inline-block animate-float"
+              style={{ filter: "drop-shadow(0 0 30px rgba(59,130,246,0.5))" }}
             >
               ✈️
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+            <h1
+              className="text-4xl font-black tracking-tight mb-2"
+              style={{
+                background:
+                  "linear-gradient(135deg, #fff 0%, #93c5fd 50%, #c4b5fd 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
               旅程記帳
             </h1>
-            <p className="text-gray-500 text-sm mt-2">輕鬆分帳，旅途無憂</p>
+            <p className="text-gray-500 text-sm">多人分帳，輕鬆搞掂</p>
           </div>
 
-          {/* #1: Join existing trip */}
-          <div className="bg-[#1c1c1e] rounded-2xl p-4 mb-6 border border-gray-800">
-            <div className="text-sm text-gray-400 mb-2">🔗 加入旅程</div>
+          {/* Join Card */}
+          <div
+            className="rounded-3xl p-5 mb-4 border border-blue-500/20 animate-fade-in-up"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.05) 100%)",
+              animationDelay: "0.1s",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center text-sm">
+                🔗
+              </div>
+              <span className="text-sm font-semibold text-blue-300">
+                加入現有旅程
+              </span>
+            </div>
             <div className="flex gap-2">
               <input
-                className="flex-1 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono"
+                className="flex-1 p-3 bg-black/60 rounded-2xl border border-gray-700/80 text-center tracking-[0.3em] uppercase font-mono text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none transition-colors"
                 placeholder="輸入旅程碼"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
@@ -1101,31 +1133,41 @@ function ExpensesPageContent() {
               />
               <button
                 onClick={handleJoinTrip}
-                className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
+                className="px-5 py-3 bg-blue-600 rounded-2xl font-bold hover:bg-blue-500 active:scale-95 transition-all"
               >
                 加入
               </button>
             </div>
           </div>
 
-          {/* #9: Recent trips */}
+          {/* Recent trips */}
           {recentTrips.length > 0 && (
-            <div className="mb-6">
-              <div className="text-sm text-gray-400 mb-2">📋 最近旅程</div>
+            <div
+              className="mb-4 animate-fade-in-up"
+              style={{ animationDelay: "0.15s" }}
+            >
+              <div className="text-xs text-gray-500 font-medium mb-2 px-1">
+                最近旅程
+              </div>
               <div className="space-y-2">
-                {recentTrips.map((trip) => (
+                {recentTrips.slice(0, 3).map((trip) => (
                   <button
                     key={trip.code}
                     onClick={() => router.push(`/expenses?code=${trip.code}`)}
-                    className="w-full flex items-center justify-between p-3 bg-[#1c1c1e] rounded-xl border border-gray-800 hover:bg-gray-800/80 transition-colors text-left"
+                    className="w-full flex items-center justify-between p-3 bg-[#1c1c1e]/80 rounded-2xl border border-gray-800 hover:border-gray-600 hover:bg-gray-800/60 active:scale-[0.98] transition-all text-left"
                   >
-                    <div>
-                      <div className="font-medium">{trip.name}</div>
-                      <div className="text-xs text-gray-500 font-mono">
-                        {trip.code}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600/30 to-purple-600/30 flex items-center justify-center text-sm">
+                        ✈️
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">{trip.name}</div>
+                        <div className="text-[11px] text-gray-500 font-mono tracking-wider">
+                          {trip.code}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-600">{trip.date}</div>
+                    <div className="text-[11px] text-gray-600">{trip.date}</div>
                   </button>
                 ))}
               </div>
@@ -1133,83 +1175,112 @@ function ExpensesPageContent() {
           )}
 
           {/* Divider */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 border-t border-gray-800" />
-            <span className="text-gray-600 text-xs">或者建立新旅程</span>
-            <div className="flex-1 border-t border-gray-800" />
+          <div
+            className="flex items-center gap-3 my-5 animate-fade-in-up"
+            style={{ animationDelay: "0.2s" }}
+          >
+            <div className="flex-1 border-t border-gray-800/80" />
+            <span className="text-gray-600 text-xs px-2">或者建立新旅程</span>
+            <div className="flex-1 border-t border-gray-800/80" />
           </div>
 
-          <input
-            className="w-full p-4 bg-[#1c1c1e] rounded-xl mb-4 border border-gray-800"
-            placeholder="旅程名稱 (如: 東京之旅)"
-            value={tripName}
-            onChange={(e) => setTripName(e.target.value)}
-          />
-
-          {/* #5: Member avatar preview */}
-          {memberNames.some((n) => n.trim()) && (
-            <div className="flex gap-2 mb-3 px-1">
-              {memberNames
-                .filter((n) => n.trim())
-                .map((n, i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ backgroundColor: getAvatarColor(i) }}
-                  >
-                    {getAvatarText(n.trim())}
-                  </div>
-                ))}
-            </div>
-          )}
-
-          <div className="space-y-2 mb-6">
-            {memberNames.map((n, i) => (
-              <div key={i} className="flex gap-2">
-                <input
-                  className="flex-1 p-4 bg-[#1c1c1e] rounded-xl border border-gray-800"
-                  placeholder={`成員 ${i + 1}`}
-                  value={n}
-                  onChange={(e) => {
-                    const next = [...memberNames];
-                    next[i] = e.target.value;
-                    setMemberNames(next);
-                  }}
-                />
-                {memberNames.length > 2 && (
-                  <button
-                    onClick={() =>
-                      setMemberNames(memberNames.filter((_, idx) => idx !== i))
-                    }
-                    className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-red-400"
-                  >
-                    ✕
-                  </button>
-                )}
+          {/* Create Card */}
+          <div
+            className="rounded-3xl p-5 border border-gray-800/80 bg-[#111] animate-fade-in-up"
+            style={{ animationDelay: "0.25s" }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-sm">
+                🗺️
               </div>
-            ))}
-          </div>
+              <span className="text-sm font-semibold text-gray-300">
+                建立新旅程
+              </span>
+            </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMemberNames([...memberNames, ""])}
-              className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-gray-400"
-            >
-              +
-            </button>
-            <button
-              onClick={handleCreateTrip}
-              disabled={submitting}
-              className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> 建立中...
-                </>
-              ) : (
-                "🚀 開始旅程"
-              )}
-            </button>
+            <input
+              className="w-full p-4 bg-black/70 rounded-2xl mb-4 border border-gray-800 text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none transition-colors"
+              placeholder="旅程名稱（如：東京五日遊）"
+              value={tripName}
+              onChange={(e) => setTripName(e.target.value)}
+            />
+
+            {/* Member avatar preview */}
+            {memberNames.some((n) => n.trim()) && (
+              <div className="flex gap-2 mb-3 px-1 flex-wrap">
+                {memberNames
+                  .filter((n) => n.trim())
+                  .map((n, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ring-2 ring-white/10"
+                        style={{ backgroundColor: getAvatarColor(i) }}
+                      >
+                        {getAvatarText(n.trim())}
+                      </div>
+                      <span className="text-[9px] text-gray-500 max-w-[36px] truncate">
+                        {n.trim()}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <div className="space-y-2 mb-4">
+              {memberNames.map((n, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    className="flex-1 p-3.5 bg-black/70 rounded-2xl border border-gray-800 text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none transition-colors"
+                    placeholder={`成員 ${i + 1} 名稱`}
+                    value={n}
+                    onChange={(e) => {
+                      const next = [...memberNames];
+                      next[i] = e.target.value;
+                      setMemberNames(next);
+                    }}
+                  />
+                  {memberNames.length > 2 && (
+                    <button
+                      onClick={() =>
+                        setMemberNames(
+                          memberNames.filter((_, idx) => idx !== i),
+                        )
+                      }
+                      className="px-3.5 py-3 bg-black/70 rounded-2xl border border-gray-800 text-red-400 hover:bg-red-900/20 active:scale-95 transition-all"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMemberNames([...memberNames, ""])}
+                className="px-4 py-3 bg-black/70 rounded-2xl border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600 active:scale-95 transition-all text-sm font-medium"
+              >
+                + 加成員
+              </button>
+              <button
+                onClick={handleCreateTrip}
+                disabled={submitting}
+                className="flex-1 py-3 rounded-2xl font-bold disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+                  boxShadow: "0 4px 24px rgba(37,99,235,0.35)",
+                }}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> 建立中...
+                  </>
+                ) : (
+                  "🚀 出發！"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1299,31 +1370,42 @@ function ExpensesPageContent() {
               <Star className="w-4 h-4" />
             </button>
           </div>
-          {/* Title with Language Toggle */}
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-3xl font-extrabold tracking-tight">
-              {data.name}
-            </h1>
+          {/* Hero Title */}
+          <div className="mb-5 animate-fade-in-up">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <h1
+                className="text-3xl font-black tracking-tight leading-tight"
+                style={{
+                  background: "linear-gradient(135deg, #fff 0%, #93c5fd 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                {data.name}
+              </h1>
+              <button
+                onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
+                className="flex-shrink-0 mt-1 text-xs font-bold border border-gray-700 rounded-full px-3 py-1 hover:bg-gray-800 hover:border-gray-500 transition-all text-gray-400"
+              >
+                {language === "zh" ? "EN" : "中"}
+              </button>
+            </div>
+            {/* Trip code pill */}
             <button
-              onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
-              className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 hover:bg-gray-800 transition-colors flex-shrink-0"
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(data.code)
+                  .then(() => showToast("旅程碼已複製"))
+                  .catch(() => {});
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all active:scale-95"
             >
-              {language === "zh" ? "EN" : "中"}
+              <span className="text-[11px] font-mono tracking-[0.25em] text-gray-400">
+                {data.code}
+              </span>
+              <Copy className="w-3 h-3 text-gray-600" />
             </button>
           </div>
-          {/* #8: Trip code display + copy */}
-          <button
-            onClick={() => {
-              navigator.clipboard
-                .writeText(data.code)
-                .then(() => showToast("旅程碼已複製"))
-                .catch(() => {});
-            }}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors mb-6"
-          >
-            <span className="font-mono tracking-widest">{data.code}</span>
-            <Copy className="w-3 h-3" />
-          </button>
         </div>
 
         {/* Favorites Modal */}
@@ -1523,34 +1605,44 @@ function ExpensesPageContent() {
             })}
           </div>
 
-          {/* 2x2 Input Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Currency Selector Button */}
-            <select
-              value={currency}
-              onChange={(e) => {
-                const newCurrency = e.target.value;
-                setCurrency(newCurrency);
-                if (newCurrency === "OTHER") {
-                  setCustomCurrency("");
-                }
-              }}
-              className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                backgroundPosition: "right 0.5rem center",
-                backgroundRepeat: "no-repeat",
-                backgroundSize: "1.5em 1.5em",
-              }}
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.flag} {c.code}{" "}
-                  {language === "zh" && c.code === "HKD" ? "港幣" : ""}
-                </option>
-              ))}
-            </select>
+          {/* Currency Pill Selector */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+            {CURRENCIES.map((c) => {
+              const isSelected = currency === c.code;
+              return (
+                <button
+                  key={c.code}
+                  onClick={() => {
+                    setCurrency(c.code);
+                    if (c.code !== "OTHER") setCustomCurrency("");
+                  }}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-medium transition-all active:scale-95 ${
+                    isSelected
+                      ? "border-blue-500 bg-blue-500/20 text-blue-300"
+                      : "border-gray-800 bg-black/50 text-gray-400 hover:border-gray-600"
+                  }`}
+                >
+                  <span>{c.flag}</span>
+                  <span>{c.code === "OTHER" ? "其他" : c.code}</span>
+                </button>
+              );
+            })}
+          </div>
 
+          {/* Custom Currency Input */}
+          {currency === "OTHER" && (
+            <input
+              type="text"
+              placeholder="輸入幣種代碼 (如: SGD, MYR)"
+              value={customCurrency}
+              onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
+              className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600 focus:border-blue-600 focus:outline-none"
+              maxLength={5}
+            />
+          )}
+
+          {/* Amount + Date + Note Grid */}
+          <div className="grid grid-cols-2 gap-3">
             {/* Amount Input */}
             <input
               type="number"
@@ -1569,27 +1661,15 @@ function ExpensesPageContent() {
               className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
             />
 
-            {/* Notes Input */}
+            {/* Notes Input (full width) */}
             <input
               type="text"
               placeholder={t.notePh}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+              className="col-span-2 w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
             />
           </div>
-
-          {/* Custom Currency Input */}
-          {currency === "OTHER" && (
-            <input
-              type="text"
-              placeholder="輸入幣種代碼 (如: SGD, MYR)"
-              value={customCurrency}
-              onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
-              className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600"
-              maxLength={5}
-            />
-          )}
 
           {/* Exchange Rate Input (shown for non-HKD currencies) */}
           {((currency !== "HKD" && currency !== "OTHER") ||
@@ -1944,65 +2024,80 @@ function ExpensesPageContent() {
                 const maxAmount = Math.max(totalPaid, totalConsumed, 1);
 
                 return (
-                  <div key={id} className="bg-black p-3 rounded-xl">
-                    <div className="flex items-center gap-3 mb-2">
-                      {/* Avatar */}
+                  <div
+                    key={id}
+                    className="bg-black/60 p-4 rounded-2xl border border-gray-800/60 animate-fade-in-up"
+                  >
+                    {/* Top row: avatar + name + net badge */}
+                    <div className="flex items-center gap-3 mb-3">
                       <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ring-2 ring-white/10"
                         style={{ backgroundColor: getAvatarColor(memberIdx) }}
                       >
                         {getAvatarText(member.name)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium truncate">
-                            {member.name}
+                        <span className="font-semibold text-white truncate block">
+                          {member.name}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-sm font-black px-2.5 py-1 rounded-full ${
+                          bal > 0
+                            ? "bg-green-500/15 text-green-400 border border-green-500/20"
+                            : bal < 0
+                              ? "bg-red-500/15 text-red-400 border border-red-500/20"
+                              : "bg-gray-800 text-gray-500 border border-gray-700"
+                        }`}
+                      >
+                        {bal > 0
+                          ? `+$${bal.toFixed(1)}`
+                          : bal < 0
+                            ? `-$${Math.abs(bal).toFixed(1)}`
+                            : "$0"}
+                      </span>
+                    </div>
+                    {/* Progress bars */}
+                    <div className="space-y-2.5">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            墊支
                           </span>
-                          <span
-                            className={`text-sm font-bold ${bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}`}
-                          >
-                            {bal > 0
-                              ? `+$${bal.toFixed(1)}`
-                              : bal < 0
-                                ? `-$${Math.abs(bal).toFixed(1)}`
-                                : "$0"}
+                          <span className="text-[11px] text-green-400 font-semibold">
+                            ${totalPaid.toFixed(1)}
                           </span>
                         </div>
-                      </div>
-                    </div>
-                    {/* Visual bars */}
-                    <div className="space-y-1 pl-12">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-600 w-6">
-                          {t.totalAdvanced?.slice(0, 1) || "墊"}
-                        </span>
-                        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-green-500/60 rounded-full transition-all duration-500"
+                            className="h-full rounded-full transition-all duration-700"
                             style={{
                               width: `${(totalPaid / maxAmount) * 100}%`,
+                              background:
+                                "linear-gradient(90deg, #10b981 0%, #34d399 100%)",
                             }}
                           />
                         </div>
-                        <span className="text-[10px] text-gray-500 w-12 text-right">
-                          ${totalPaid.toFixed(1)}
-                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-600 w-6">
-                          {t.totalSpent?.slice(0, 1) || "花"}
-                        </span>
-                        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            消費
+                          </span>
+                          <span className="text-[11px] text-red-400 font-semibold">
+                            ${totalConsumed.toFixed(1)}
+                          </span>
+                        </div>
+                        <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-red-500/60 rounded-full transition-all duration-500"
+                            className="h-full rounded-full transition-all duration-700"
                             style={{
                               width: `${(totalConsumed / maxAmount) * 100}%`,
+                              background:
+                                "linear-gradient(90deg, #ef4444 0%, #f87171 100%)",
                             }}
                           />
                         </div>
-                        <span className="text-[10px] text-gray-500 w-12 text-right">
-                          ${totalConsumed.toFixed(1)}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -2045,32 +2140,62 @@ function ExpensesPageContent() {
                     return (
                       <div
                         key={idx}
-                        className="flex items-center gap-3 bg-black p-3 rounded-xl"
+                        className="bg-black/70 rounded-2xl border border-gray-800/60 p-4 animate-fade-in-up"
+                        style={{ animationDelay: `${idx * 0.06}s` }}
                       >
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-red-500/30"
-                          style={{ backgroundColor: getAvatarColor(fromIdx) }}
-                        >
-                          {getAvatarText(s.from)}
-                        </div>
-                        <div className="flex-1 flex items-center gap-2">
-                          <span className="text-sm font-medium text-red-400 truncate">
-                            {s.from}
+                        {/* Amount badge */}
+                        <div className="text-center mb-3">
+                          <span
+                            className="inline-block px-4 py-1 rounded-full text-sm font-black text-yellow-400 border border-yellow-500/30"
+                            style={{ background: "rgba(234,179,8,0.08)" }}
+                          >
+                            HKD ${s.amount.toFixed(1)}
                           </span>
-                          <div className="flex-1 border-t border-dashed border-gray-700 relative">
-                            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] text-yellow-500 font-bold bg-black px-1">
-                              ${s.amount.toFixed(1)}
+                        </div>
+                        {/* From → To row */}
+                        <div className="flex items-center gap-2">
+                          {/* From */}
+                          <div className="flex flex-col items-center gap-1 flex-1">
+                            <div
+                              className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ring-2 ring-red-500/30"
+                              style={{
+                                backgroundColor: getAvatarColor(fromIdx),
+                              }}
+                            >
+                              {getAvatarText(s.from)}
+                            </div>
+                            <span className="text-xs font-medium text-red-400 truncate max-w-[60px]">
+                              {s.from}
                             </span>
                           </div>
-                          <span className="text-sm font-medium text-green-400 truncate">
-                            {s.to}
-                          </span>
-                        </div>
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-green-500/30"
-                          style={{ backgroundColor: getAvatarColor(toIdx) }}
-                        >
-                          {getAvatarText(s.to)}
+                          {/* Animated arrow */}
+                          <div className="flex-1 flex items-center justify-center gap-0.5">
+                            {[0, 1, 2].map((i) => (
+                              <div
+                                key={i}
+                                className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-arrow-slide"
+                                style={{ animationDelay: `${i * 0.2}s` }}
+                              />
+                            ))}
+                            <span
+                              className="text-gray-500 text-base animate-arrow-slide"
+                              style={{ animationDelay: "0.4s" }}
+                            >
+                              ›
+                            </span>
+                          </div>
+                          {/* To */}
+                          <div className="flex flex-col items-center gap-1 flex-1">
+                            <div
+                              className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ring-2 ring-green-500/30"
+                              style={{ backgroundColor: getAvatarColor(toIdx) }}
+                            >
+                              {getAvatarText(s.to)}
+                            </div>
+                            <span className="text-xs font-medium text-green-400 truncate max-w-[60px]">
+                              {s.to}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -2096,10 +2221,12 @@ function ExpensesPageContent() {
           {recordsExpanded && (
             <div className="px-4 pb-4">
               {expensesByDate.length === 0 && (
-                <div className="text-center py-10">
-                  <div className="text-5xl mb-3">📭</div>
-                  <div className="text-gray-500 mb-1">暫無記錄</div>
-                  <div className="text-xs text-gray-700">
+                <div className="text-center py-12 animate-fade-in">
+                  <div className="text-6xl mb-4 animate-bounce-gentle inline-block">
+                    📭
+                  </div>
+                  <div className="text-gray-400 font-medium mb-1">暫無記錄</div>
+                  <div className="text-xs text-gray-600">
                     喺上面新增第一筆支出吧！
                   </div>
                 </div>
@@ -2179,45 +2306,51 @@ function ExpensesPageContent() {
                             return (
                               <div
                                 key={e.id}
-                                className="flex items-stretch bg-[#1c1c1e] rounded-xl border border-gray-800 overflow-hidden"
+                                className="flex items-stretch bg-[#111] rounded-2xl border border-gray-800/70 overflow-hidden hover:border-gray-700 transition-colors animate-fade-in-up"
                               >
-                                {/* Category color indicator */}
+                                {/* Category color bar — wider */}
                                 <div
-                                  className="w-1 flex-shrink-0"
+                                  className="w-1.5 flex-shrink-0"
                                   style={{
                                     backgroundColor:
                                       CATEGORY_COLORS[e.category || "other"] ||
                                       "#6b7280",
                                   }}
                                 />
-                                <div className="flex justify-between items-center flex-1 p-3 min-w-0">
+                                <div className="flex justify-between items-center flex-1 p-3.5 min-w-0">
                                   <div className="flex-1 min-w-0 pr-3">
-                                    <div className="font-bold text-sm">
-                                      {CATEGORIES.find(
-                                        (c) => c.id === e.category,
-                                      )?.icon || "📝"}{" "}
-                                      {t[e.category as keyof typeof t] ||
-                                        e.title}
+                                    <div className="font-bold text-sm flex items-center gap-1.5">
+                                      <span className="text-base">
+                                        {CATEGORIES.find(
+                                          (c) => c.id === e.category,
+                                        )?.icon || "📝"}
+                                      </span>
+                                      <span>
+                                        {t[e.category as keyof typeof t] ||
+                                          e.title}
+                                      </span>
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-0.5">
-                                      {
-                                        data.members.find(
-                                          (m) => m.id === e.payerId,
-                                        )?.name
-                                      }{" "}
-                                      {t.paidSuffix} • {beneficiariesText}
+                                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 flex-wrap">
+                                      <span className="text-gray-400 font-medium">
+                                        {
+                                          data.members.find(
+                                            (m) => m.id === e.payerId,
+                                          )?.name
+                                        }
+                                      </span>
+                                      <span className="text-gray-700">•</span>
+                                      <span>{beneficiariesText}</span>
                                       {e.originalCurrency &&
                                         e.originalCurrency !== "HKD" &&
                                         e.originalAmount && (
-                                          <span className="ml-1 text-gray-600">
-                                            ({t.origPrefix} {e.originalCurrency}{" "}
+                                          <span className="text-gray-600">
+                                            ({e.originalCurrency}{" "}
                                             {e.originalAmount.toFixed(0)})
                                           </span>
                                         )}
                                     </div>
                                     {e.note && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        <span className="opacity-70">📝</span>{" "}
+                                      <div className="text-xs text-gray-600 mt-1 italic">
                                         {e.note}
                                       </div>
                                     )}
