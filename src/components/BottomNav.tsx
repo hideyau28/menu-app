@@ -4,11 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 
-const navItems = [
-  { href: "/weather", label: "天氣", icon: "🌤️" },
-  { href: "/expenses", label: "記帳", icon: "💰" },
-  { href: "/currency", label: "匯率", icon: "💱" },
-];
+const navItems = [{ href: "/expenses", label: "記帳", icon: "💰" }];
 
 function BottomNavContent() {
   const pathname = usePathname();
@@ -37,8 +33,8 @@ function BottomNavContent() {
   }, [pathname, searchParams]);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#1c1c1e] border-t border-zinc-800 z-50">
-      <div className="flex justify-around max-w-4xl mx-auto px-2 py-2">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#1c1c1e]/95 backdrop-blur-md border-t border-zinc-800 z-50">
+      <div className="flex justify-around max-w-4xl mx-auto px-4 py-1 pb-safe">
         {navItems.map((item) => {
           // Smart href: if it's expenses and we have a saved code, append it
           const href =
@@ -52,12 +48,24 @@ function BottomNavContent() {
             <Link
               key={item.href}
               href={href}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 transition-colors ${
-                isActive ? "text-white" : "text-zinc-400"
-              }`}
+              className="flex-1 flex flex-col items-center gap-0.5 py-2 transition-all"
             >
-              <span className="text-xl">{item.icon}</span>
-              <span className={`text-xs ${isActive ? "font-semibold" : ""}`}>
+              <div
+                className={`relative flex items-center justify-center w-12 h-7 rounded-full transition-all duration-200 ${
+                  isActive ? "bg-white/15" : ""
+                }`}
+              >
+                <span
+                  className={`text-xl transition-transform duration-200 ${isActive ? "scale-110" : ""}`}
+                >
+                  {item.icon}
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-medium transition-colors ${
+                  isActive ? "text-white" : "text-zinc-500"
+                }`}
+              >
                 {item.label}
               </span>
             </Link>
