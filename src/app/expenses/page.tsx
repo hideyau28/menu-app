@@ -2,13 +2,30 @@
 
 import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense } from "./actions";
-import { toast, Toaster } from 'sonner';
-import * as XLSX from 'xlsx';
-import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Trash2 } from 'lucide-react';
-import { useTranslation } from '@/contexts/LanguageContext';
-import { format } from 'date-fns';
-import { enUS, zhTW } from 'date-fns/locale';
+import {
+  createTrip,
+  getTripByCode,
+  addExpense,
+  deleteExpense,
+  updateExpense,
+} from "./actions";
+import { toast, Toaster } from "sonner";
+import * as XLSX from "xlsx";
+import {
+  Star,
+  FileSpreadsheet,
+  Share2,
+  FolderPlus,
+  RotateCw,
+  ChevronDown,
+  Check,
+  Copy,
+  Loader2,
+  Trash2,
+} from "lucide-react";
+import { useTranslation } from "@/contexts/LanguageContext";
+import { format } from "date-fns";
+import { enUS, zhTW } from "date-fns/locale";
 
 // 定義資料類型
 type TripData = Awaited<ReturnType<typeof getTripByCode>>;
@@ -23,38 +40,38 @@ const CATEGORIES = [
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  dining: '#3b82f6',    // blue
-  transport: '#f97316', // orange
-  hotel: '#a855f7',     // purple
-  shopping: '#ec4899',  // pink
-  activity: '#10b981',  // green
-  other: '#6b7280',     // gray
+  dining: "#3b82f6", // blue
+  transport: "#f97316", // orange
+  hotel: "#a855f7", // purple
+  shopping: "#ec4899", // pink
+  activity: "#10b981", // green
+  other: "#6b7280", // gray
 };
 
 const CURRENCIES = [
-  { code: 'HKD', label: 'HKD 港幣', flag: '🇭🇰' },
-  { code: 'JPY', label: 'JPY', flag: '🇯🇵' },
-  { code: 'USD', label: 'USD', flag: '🇺🇸' },
-  { code: 'CNY', label: 'CNY', flag: '🇨🇳' },
-  { code: 'EUR', label: 'EUR', flag: '🇪🇺' },
-  { code: 'GBP', label: 'GBP', flag: '🇬🇧' },
-  { code: 'CAD', label: 'CAD', flag: '🇨🇦' },
-  { code: 'KRW', label: 'KRW', flag: '🇰🇷' },
-  { code: 'TWD', label: 'TWD', flag: '🇹🇼' },
-  { code: 'THB', label: 'THB', flag: '🇹🇭' },
-  { code: 'AUD', label: 'AUD', flag: '🇦🇺' },
-  { code: 'OTHER', label: '其他幣種...', flag: '🌍' },
+  { code: "HKD", label: "HKD 港幣", flag: "🇭🇰" },
+  { code: "JPY", label: "JPY", flag: "🇯🇵" },
+  { code: "USD", label: "USD", flag: "🇺🇸" },
+  { code: "CNY", label: "CNY", flag: "🇨🇳" },
+  { code: "EUR", label: "EUR", flag: "🇪🇺" },
+  { code: "GBP", label: "GBP", flag: "🇬🇧" },
+  { code: "CAD", label: "CAD", flag: "🇨🇦" },
+  { code: "KRW", label: "KRW", flag: "🇰🇷" },
+  { code: "TWD", label: "TWD", flag: "🇹🇼" },
+  { code: "THB", label: "THB", flag: "🇹🇭" },
+  { code: "AUD", label: "AUD", flag: "🇦🇺" },
+  { code: "OTHER", label: "其他幣種...", flag: "🌍" },
 ] as const;
 
 const AVATAR_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ec4899', // pink
-  '#8b5cf6', // purple
-  '#14b8a6', // teal
-  '#f97316', // orange
-  '#06b6d4', // cyan
+  "#3b82f6", // blue
+  "#10b981", // green
+  "#f59e0b", // amber
+  "#ec4899", // pink
+  "#8b5cf6", // purple
+  "#14b8a6", // teal
+  "#f97316", // orange
+  "#06b6d4", // cyan
 ];
 
 const getAvatarColor = (index: number) => {
@@ -62,7 +79,7 @@ const getAvatarColor = (index: number) => {
 };
 
 const getAvatarText = (name: string) => {
-  if (!name) return '?';
+  if (!name) return "?";
 
   // Check if the first character is ASCII (English/Latin)
   const firstChar = name.charAt(0);
@@ -99,10 +116,12 @@ function ExpensesPageContent() {
   const [amount, setAmount] = useState("");
   const [payerId, setPayerId] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
-  const [currency, setCurrency] = useState<string>('HKD');
-  const [customCurrency, setCustomCurrency] = useState('');
-  const [exchangeRates, setExchangeRates] = useState<Record<string, string>>({});
-  const [splitMode, setSplitMode] = useState<'equal' | 'custom'>('equal');
+  const [currency, setCurrency] = useState<string>("HKD");
+  const [customCurrency, setCustomCurrency] = useState("");
+  const [exchangeRates, setExchangeRates] = useState<Record<string, string>>(
+    {},
+  );
+  const [splitMode, setSplitMode] = useState<"equal" | "custom">("equal");
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
 
   // Editing State
@@ -111,7 +130,9 @@ function ExpensesPageContent() {
   // UI States
   const [submitting, setSubmitting] = useState(false);
   const [joinCode, setJoinCode] = useState("");
-  const [recentTrips, setRecentTrips] = useState<Array<{ code: string; name: string; date: string }>>([]);
+  const [recentTrips, setRecentTrips] = useState<
+    Array<{ code: string; name: string; date: string }>
+  >([]);
   const [fetchingRate, setFetchingRate] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -136,18 +157,18 @@ function ExpensesPageContent() {
       toast.success(msg, {
         duration: 2000,
         style: {
-          background: '#10b981',
-          color: 'white',
-          border: 'none',
+          background: "#10b981",
+          color: "white",
+          border: "none",
         },
       });
     } else {
       toast.error(msg, {
         duration: 3000,
         style: {
-          background: '#ef4444',
-          color: 'white',
-          border: 'none',
+          background: "#ef4444",
+          color: "white",
+          border: "none",
         },
       });
     }
@@ -160,20 +181,21 @@ function ExpensesPageContent() {
       if (navigator.share) {
         try {
           await navigator.share({
-            title: data?.name || '旅程記帳',
-            text: '一起來記帳吧！',
+            title: data?.name || "旅程記帳",
+            text: "一起來記帳吧！",
             url: window.location.href,
           });
           showToast("已分享");
           return;
         } catch (err) {
           // User cancelled or share failed, fall through to clipboard
-          if ((err as Error).name === 'AbortError') return; // User cancelled
+          if ((err as Error).name === "AbortError") return; // User cancelled
         }
       }
 
       // Fallback to clipboard
-      navigator.clipboard.writeText(window.location.href)
+      navigator.clipboard
+        .writeText(window.location.href)
         .then(() => showToast("連結已複製"))
         .catch(() => showToast("複製失敗", "error"));
     }
@@ -202,7 +224,7 @@ function ExpensesPageContent() {
           setData(res);
           // 預設填入第一個成員並全選參與者
           if (res.members.length > 0) {
-            setPayerId(prev => prev || res.members[0].id);
+            setPayerId((prev) => prev || res.members[0].id);
             // 預設全選所有成員
             setParticipantIds(res.members.map((m) => m.id));
           }
@@ -214,8 +236,8 @@ function ExpensesPageContent() {
       })
       .catch(() => {
         if (!cancelled) {
-            setData(null);
-            showToast("連線錯誤", "error");
+          setData(null);
+          showToast("連線錯誤", "error");
         }
       })
       .finally(() => {
@@ -229,31 +251,40 @@ function ExpensesPageContent() {
 
   // Load exchange rates from localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedRates = localStorage.getItem('tripUtility_exchangeRates');
+    if (typeof window !== "undefined") {
+      const savedRates = localStorage.getItem("tripUtility_exchangeRates");
       if (savedRates) {
         try {
           setExchangeRates(JSON.parse(savedRates));
         } catch (e) {
-          console.error('Failed to parse exchange rates:', e);
+          console.error("Failed to parse exchange rates:", e);
         }
       }
       // #9: Load recent trips
-      const saved = localStorage.getItem('tripUtility_recentTrips');
+      const saved = localStorage.getItem("tripUtility_recentTrips");
       if (saved) {
-        try { setRecentTrips(JSON.parse(saved)); } catch {}
+        try {
+          setRecentTrips(JSON.parse(saved));
+        } catch {}
       }
     }
   }, []);
 
   // #9: Save current trip to recent trips list
   useEffect(() => {
-    if (data && typeof window !== 'undefined') {
-      const entry = { code: data.code, name: data.name, date: new Date().toISOString().slice(0, 10) };
-      setRecentTrips(prev => {
-        const filtered = prev.filter(t => t.code !== data.code);
+    if (data && typeof window !== "undefined") {
+      const entry = {
+        code: data.code,
+        name: data.name,
+        date: new Date().toISOString().slice(0, 10),
+      };
+      setRecentTrips((prev) => {
+        const filtered = prev.filter((t) => t.code !== data.code);
         const updated = [entry, ...filtered].slice(0, 10);
-        localStorage.setItem('tripUtility_recentTrips', JSON.stringify(updated));
+        localStorage.setItem(
+          "tripUtility_recentTrips",
+          JSON.stringify(updated),
+        );
         return updated;
       });
     }
@@ -261,19 +292,25 @@ function ExpensesPageContent() {
 
   // Save exchange rates to localStorage whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && Object.keys(exchangeRates).length > 0) {
-      localStorage.setItem('tripUtility_exchangeRates', JSON.stringify(exchangeRates));
+    if (
+      typeof window !== "undefined" &&
+      Object.keys(exchangeRates).length > 0
+    ) {
+      localStorage.setItem(
+        "tripUtility_exchangeRates",
+        JSON.stringify(exchangeRates),
+      );
     }
   }, [exchangeRates]);
 
   // Reset custom splits when participants change or split mode changes
   // Fix #2: Use functional update to avoid stale closure
   useEffect(() => {
-    if (splitMode === 'custom' && participantIds.length > 0) {
-      setCustomSplits(prev => {
+    if (splitMode === "custom" && participantIds.length > 0) {
+      setCustomSplits((prev) => {
         const newSplits: Record<string, string> = {};
-        participantIds.forEach(id => {
-          newSplits[id] = prev[id] || '';
+        participantIds.forEach((id) => {
+          newSplits[id] = prev[id] || "";
         });
         return newSplits;
       });
@@ -307,7 +344,7 @@ function ExpensesPageContent() {
       return;
     }
 
-    if (members.some(m => m.length > 20)) {
+    if (members.some((m) => m.length > 20)) {
       showToast("成員名稱最多 20 字", "error");
       return;
     }
@@ -327,8 +364,8 @@ function ExpensesPageContent() {
 
   // 輔助函數：獲取最終幣種代碼
   const getFinalCurrency = () => {
-    if (currency === 'OTHER') {
-      return customCurrency.trim() || 'OTHER';
+    if (currency === "OTHER") {
+      return customCurrency.trim() || "OTHER";
     }
     return currency;
   };
@@ -338,11 +375,11 @@ function ExpensesPageContent() {
     if (!amount) return 0;
     const finalCurrency = getFinalCurrency();
 
-    if (finalCurrency === 'HKD') {
+    if (finalCurrency === "HKD") {
       return parseFloat(amount);
     }
 
-    const rate = parseFloat(exchangeRates[finalCurrency] || '0');
+    const rate = parseFloat(exchangeRates[finalCurrency] || "0");
     return parseFloat(amount) * rate;
   };
 
@@ -364,22 +401,25 @@ function ExpensesPageContent() {
     }
 
     // Validate exchange rate for non-HKD currencies
-    if (finalCurrency !== 'HKD') {
-      const rate = parseFloat(exchangeRates[finalCurrency] || '0');
+    if (finalCurrency !== "HKD") {
+      const rate = parseFloat(exchangeRates[finalCurrency] || "0");
       if (!rate || rate === 0) {
         showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
         return;
       }
     }
 
-    const amountHKD = finalCurrency === 'HKD'
-      ? amountValue
-      : amountValue * parseFloat(exchangeRates[finalCurrency] || '0');
+    const amountHKD =
+      finalCurrency === "HKD"
+        ? amountValue
+        : amountValue * parseFloat(exchangeRates[finalCurrency] || "0");
 
     // Validate custom splits
-    if (splitMode === 'custom') {
-      const splitTotal = Object.values(customSplits)
-        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+    if (splitMode === "custom") {
+      const splitTotal = Object.values(customSplits).reduce(
+        (sum, val) => sum + (parseFloat(val) || 0),
+        0,
+      );
       const diff = Math.abs(amountHKD - splitTotal);
 
       if (diff > 1) {
@@ -388,7 +428,9 @@ function ExpensesPageContent() {
       }
 
       // Check all participants have amounts
-      const hasEmptySplits = participantIds.some(pid => !customSplits[pid] || parseFloat(customSplits[pid]) === 0);
+      const hasEmptySplits = participantIds.some(
+        (pid) => !customSplits[pid] || parseFloat(customSplits[pid]) === 0,
+      );
       if (hasEmptySplits) {
         showToast("請輸入所有參與者的分擔金額", "error");
         return;
@@ -408,17 +450,19 @@ function ExpensesPageContent() {
         amountHKD,
         originalCurrency: finalCurrency,
         originalAmount: amountValue,
-        customSplits: splitMode === 'custom' ? customSplits : undefined,
+        customSplits: splitMode === "custom" ? customSplits : undefined,
       });
 
       // #2: Auto-expand the date of the newly added expense
-      setExpandedDates(prev => prev.includes(date) ? prev : [...prev, date]);
+      setExpandedDates((prev) =>
+        prev.includes(date) ? prev : [...prev, date],
+      );
 
       setAmount("");
       setNote("");
-      setCurrency('HKD'); // Reset to HKD
-      setCustomCurrency(''); // Clear custom currency
-      setSplitMode('equal'); // Reset split mode
+      setCurrency("HKD"); // Reset to HKD
+      setCustomCurrency(""); // Clear custom currency
+      setSplitMode("equal"); // Reset split mode
       setCustomSplits({}); // Clear custom splits
       // 重新全選所有參與者
       setParticipantIds(data.members.map((m) => m.id));
@@ -449,27 +493,29 @@ function ExpensesPageContent() {
   };
 
   // 6. 編輯支出 (Edit Expense)
-  const handleEdit = (expense: NonNullable<typeof data>['expenses'][0]) => {
+  const handleEdit = (expense: NonNullable<typeof data>["expenses"][0]) => {
     if (!data) return;
     setEditingExpenseId(expense.id);
 
     // 填入基本資訊
-    setCategory(expense.category || 'dining');
+    setCategory(expense.category || "dining");
     setDate(expense.date);
-    setNote(expense.note || '');
+    setNote(expense.note || "");
 
     // 填入金額和幣種
     const originalAmount = expense.originalAmount || expense.amountHKD;
-    const originalCurrency = expense.originalCurrency || 'HKD';
+    const originalCurrency = expense.originalCurrency || "HKD";
     setAmount(originalAmount.toString());
 
     // Check if currency is in predefined list
-    const isPredefinedCurrency = CURRENCIES.some(c => c.code === originalCurrency);
+    const isPredefinedCurrency = CURRENCIES.some(
+      (c) => c.code === originalCurrency,
+    );
     if (isPredefinedCurrency) {
       setCurrency(originalCurrency);
-      setCustomCurrency('');
+      setCustomCurrency("");
     } else {
-      setCurrency('OTHER');
+      setCurrency("OTHER");
       setCustomCurrency(originalCurrency);
     }
 
@@ -477,32 +523,32 @@ function ExpensesPageContent() {
     setPayerId(expense.payerId);
 
     // 解析參與者
-    const participantIdList = expense.participants.map(p =>
-      typeof p === 'string' ? p : p.id
+    const participantIdList = expense.participants.map((p) =>
+      typeof p === "string" ? p : p.id,
     );
     setParticipantIds(participantIdList);
 
     // 檢查是否有自訂分擔
-    const hasCustomSplits = expense.participants.some(p =>
-      typeof p === 'object' && p.customAmount !== undefined
+    const hasCustomSplits = expense.participants.some(
+      (p) => typeof p === "object" && p.customAmount !== undefined,
     );
 
     if (hasCustomSplits) {
-      setSplitMode('custom');
+      setSplitMode("custom");
       const splits: Record<string, string> = {};
-      expense.participants.forEach(p => {
-        if (typeof p === 'object' && p.customAmount !== undefined) {
+      expense.participants.forEach((p) => {
+        if (typeof p === "object" && p.customAmount !== undefined) {
           splits[p.id] = p.customAmount.toString();
         }
       });
       setCustomSplits(splits);
     } else {
-      setSplitMode('equal');
+      setSplitMode("equal");
       setCustomSplits({});
     }
 
     // 滾動到表單頂部
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     showToast("編輯模式");
   };
 
@@ -511,12 +557,12 @@ function ExpensesPageContent() {
     setEditingExpenseId(null);
     setAmount("");
     setNote("");
-    setCurrency('HKD');
-    setCustomCurrency(''); // Clear custom currency
-    setSplitMode('equal');
+    setCurrency("HKD");
+    setCustomCurrency(""); // Clear custom currency
+    setSplitMode("equal");
     setCustomSplits({});
     if (data) {
-      setParticipantIds(data.members.map(m => m.id));
+      setParticipantIds(data.members.map((m) => m.id));
     }
     showToast("已取消編輯");
   };
@@ -541,22 +587,25 @@ function ExpensesPageContent() {
     }
 
     // Validate exchange rate for non-HKD currencies
-    if (finalCurrency !== 'HKD') {
-      const rate = parseFloat(exchangeRates[finalCurrency] || '0');
+    if (finalCurrency !== "HKD") {
+      const rate = parseFloat(exchangeRates[finalCurrency] || "0");
       if (!rate || rate === 0) {
         showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
         return;
       }
     }
 
-    const amountHKD = finalCurrency === 'HKD'
-      ? amountValue
-      : amountValue * parseFloat(exchangeRates[finalCurrency] || '0');
+    const amountHKD =
+      finalCurrency === "HKD"
+        ? amountValue
+        : amountValue * parseFloat(exchangeRates[finalCurrency] || "0");
 
     // 驗證自訂分擔
-    if (splitMode === 'custom') {
-      const splitTotal = Object.values(customSplits)
-        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+    if (splitMode === "custom") {
+      const splitTotal = Object.values(customSplits).reduce(
+        (sum, val) => sum + (parseFloat(val) || 0),
+        0,
+      );
       const diff = Math.abs(amountHKD - splitTotal);
 
       if (diff > 1) {
@@ -564,8 +613,8 @@ function ExpensesPageContent() {
         return;
       }
 
-      const hasEmptySplits = participantIds.some(pid =>
-        !customSplits[pid] || parseFloat(customSplits[pid]) === 0
+      const hasEmptySplits = participantIds.some(
+        (pid) => !customSplits[pid] || parseFloat(customSplits[pid]) === 0,
       );
       if (hasEmptySplits) {
         showToast("請輸入所有參與者的分擔金額", "error");
@@ -587,7 +636,7 @@ function ExpensesPageContent() {
         amountHKD,
         originalCurrency: finalCurrency,
         originalAmount: amountValue,
-        customSplits: splitMode === 'custom' ? customSplits : undefined,
+        customSplits: splitMode === "custom" ? customSplits : undefined,
       });
 
       handleCancelEdit();
@@ -606,17 +655,17 @@ function ExpensesPageContent() {
     if (!data || !editingExpenseId) return;
 
     // Find the expense to show details in confirmation
-    const expense = data.expenses.find(e => e.id === editingExpenseId);
+    const expense = data.expenses.find((e) => e.id === editingExpenseId);
     if (!expense) return;
 
     const confirmMsg = [
-      '確定刪除此記錄?',
-      '',
+      "確定刪除此記錄?",
+      "",
       `📝 ${expense.title}`,
       `💰 HKD $${expense.amountHKD.toFixed(1)}`,
       `📅 ${expense.date}`,
       `👤 ${expense.payerName}`,
-    ].join('\n');
+    ].join("\n");
 
     // Fix #9: Use custom modal
     setConfirmModal({
@@ -645,40 +694,44 @@ function ExpensesPageContent() {
     try {
       // Sheet 1: 交易紀錄 (Transactions)
       const transactionHeaders = [
-        '日期',
-        '種類',
-        '備註',
-        '貨幣',
-        '原幣金額',
-        '折算港幣(HKD)',
-        '付款人',
-        ...data.members.map(m => m.name), // Dynamic member columns
+        "日期",
+        "種類",
+        "備註",
+        "貨幣",
+        "原幣金額",
+        "折算港幣(HKD)",
+        "付款人",
+        ...data.members.map((m) => m.name), // Dynamic member columns
       ];
 
-      const transactionRows = data.expenses.map(e => {
+      const transactionRows = data.expenses.map((e) => {
         const row: any[] = [
           e.date,
-          CATEGORIES.find(c => c.id === e.category)?.label || '其他',
-          e.note || '',
-          e.originalCurrency || 'HKD',
+          CATEGORIES.find((c) => c.id === e.category)?.label || "其他",
+          e.note || "",
+          e.originalCurrency || "HKD",
           e.originalAmount || e.amountHKD,
           e.amountHKD,
           e.payerName,
         ];
 
         // Add split amounts for each member
-        data.members.forEach(member => {
-          const participant = e.participants.find(p => {
-            const memberId = typeof p === 'string' ? p : p.id;
+        data.members.forEach((member) => {
+          const participant = e.participants.find((p) => {
+            const memberId = typeof p === "string" ? p : p.id;
             return memberId === member.id;
           });
 
           if (participant) {
             // Check if custom split exists
-            const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
-            const share = customAmount !== undefined
-              ? customAmount
-              : e.amountHKD / e.participants.length;
+            const customAmount =
+              typeof participant === "object"
+                ? participant.customAmount
+                : undefined;
+            const share =
+              customAmount !== undefined
+                ? customAmount
+                : e.amountHKD / e.participants.length;
             row.push(share);
           } else {
             row.push(0);
@@ -688,34 +741,48 @@ function ExpensesPageContent() {
         return row;
       });
 
-      const ws1 = XLSX.utils.aoa_to_sheet([transactionHeaders, ...transactionRows]);
+      const ws1 = XLSX.utils.aoa_to_sheet([
+        transactionHeaders,
+        ...transactionRows,
+      ]);
 
       // Sheet 2: 結餘狀況 (Balances)
-      const balanceHeaders = ['姓名', '代墊金額 (Paid)', '消費金額 (Share)', '淨結餘 (Balance)'];
-      const balanceRows = data.members.map(member => {
+      const balanceHeaders = [
+        "姓名",
+        "代墊金額 (Paid)",
+        "消費金額 (Share)",
+        "淨結餘 (Balance)",
+      ];
+      const balanceRows = data.members.map((member) => {
         // Calculate total paid
         const totalPaid = data.expenses
-          .filter(e => e.payerId === member.id)
+          .filter((e) => e.payerId === member.id)
           .reduce((sum, e) => sum + e.amountHKD, 0);
 
         // Calculate total share
         const totalShare = data.expenses
-          .filter(e => e.participants.some(p => {
-            const memberId = typeof p === 'string' ? p : p.id;
-            return memberId === member.id;
-          }))
+          .filter((e) =>
+            e.participants.some((p) => {
+              const memberId = typeof p === "string" ? p : p.id;
+              return memberId === member.id;
+            }),
+          )
           .reduce((sum, e) => {
-            const participant = e.participants.find(p => {
-              const memberId = typeof p === 'string' ? p : p.id;
+            const participant = e.participants.find((p) => {
+              const memberId = typeof p === "string" ? p : p.id;
               return memberId === member.id;
             });
 
             if (!participant) return sum;
 
-            const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
-            const share = customAmount !== undefined
-              ? customAmount
-              : e.amountHKD / e.participants.length;
+            const customAmount =
+              typeof participant === "object"
+                ? participant.customAmount
+                : undefined;
+            const share =
+              customAmount !== undefined
+                ? customAmount
+                : e.amountHKD / e.participants.length;
 
             return sum + share;
           }, 0);
@@ -728,19 +795,22 @@ function ExpensesPageContent() {
       const ws2 = XLSX.utils.aoa_to_sheet([balanceHeaders, ...balanceRows]);
 
       // Sheet 3: 建議還款 (Repayments)
-      const repaymentHeaders = ['付款人 (From)', '收款人 (To)', '金額 (HKD)'];
-      const repaymentRows = settlements.map(s => [s.from, s.to, s.amount]);
+      const repaymentHeaders = ["付款人 (From)", "收款人 (To)", "金額 (HKD)"];
+      const repaymentRows = settlements.map((s) => [s.from, s.to, s.amount]);
 
       const ws3 = XLSX.utils.aoa_to_sheet([repaymentHeaders, ...repaymentRows]);
 
       // Create workbook and add sheets
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws1, '交易紀錄');
-      XLSX.utils.book_append_sheet(wb, ws2, '結餘狀況');
-      XLSX.utils.book_append_sheet(wb, ws3, '建議還款');
+      XLSX.utils.book_append_sheet(wb, ws1, "交易紀錄");
+      XLSX.utils.book_append_sheet(wb, ws2, "結餘狀況");
+      XLSX.utils.book_append_sheet(wb, ws3, "建議還款");
 
       // Generate filename with timestamp
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/:/g, "-");
       const filename = `${data.name}_Report_${timestamp}.xlsx`;
 
       // Write file
@@ -748,7 +818,7 @@ function ExpensesPageContent() {
 
       showToast("Excel 已匯出", "success");
     } catch (error) {
-      console.error('Export error:', error);
+      console.error("Export error:", error);
       showToast("匯出失敗", "error");
     }
   };
@@ -765,14 +835,19 @@ function ExpensesPageContent() {
 
       // Participants subtract their share
       e.participants.forEach((participant) => {
-        const memberId = typeof participant === 'string' ? participant : participant.id;
+        const memberId =
+          typeof participant === "string" ? participant : participant.id;
 
         if (bal[memberId] !== undefined) {
           // Check if custom split exists
-          const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
-          const share = customAmount !== undefined
-            ? customAmount
-            : e.amountHKD / e.participants.length;
+          const customAmount =
+            typeof participant === "object"
+              ? participant.customAmount
+              : undefined;
+          const share =
+            customAmount !== undefined
+              ? customAmount
+              : e.amountHKD / e.participants.length;
 
           bal[memberId] -= share;
         }
@@ -808,7 +883,8 @@ function ExpensesPageContent() {
     creditors.sort((a, b) => b.amount - a.amount);
 
     // 生成還款建議
-    const transactions: Array<{ from: string; to: string; amount: number }> = [];
+    const transactions: Array<{ from: string; to: string; amount: number }> =
+      [];
     let i = 0;
     let j = 0;
 
@@ -838,14 +914,17 @@ function ExpensesPageContent() {
     if (!data) return [];
 
     // Group expenses by date
-    const groups = data.expenses.reduce((acc, expense) => {
-      const date = expense.date;
-      if (!acc[date]) {
-        acc[date] = [];
-      }
-      acc[date].push(expense);
-      return acc;
-    }, {} as Record<string, typeof data.expenses>);
+    const groups = data.expenses.reduce(
+      (acc, expense) => {
+        const date = expense.date;
+        if (!acc[date]) {
+          acc[date] = [];
+        }
+        acc[date].push(expense);
+        return acc;
+      },
+      {} as Record<string, typeof data.expenses>,
+    );
 
     // Convert to array and sort by date (newest first)
     const sortedGroups = Object.entries(groups)
@@ -859,28 +938,42 @@ function ExpensesPageContent() {
     return sortedGroups;
   }, [data]);
 
-  // Multi-date expansion enabled - users can expand multiple dates simultaneously
-  // No auto-expand logic to allow full collapse
+  // Auto-expand the latest date group when data first loads
+  useEffect(() => {
+    if (expensesByDate.length > 0) {
+      const latestDate = expensesByDate[0].date;
+      setExpandedDates((prev) =>
+        prev.includes(latestDate) ? prev : [latestDate],
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.code]); // Only run when trip changes, not on every expense update
 
   // Format date for display - Localized
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return format(date, language === 'en' ? 'MMM d' : 'M月d日', {
-      locale: language === 'en' ? enUS : zhTW
+    return format(date, language === "en" ? "MMM d" : "M月d日", {
+      locale: language === "en" ? enUS : zhTW,
     });
   };
 
   // #10: Auto-fetch exchange rate
   const fetchExchangeRate = async (currencyCode: string) => {
-    if (!currencyCode || currencyCode === 'HKD' || currencyCode === 'OTHER') return;
+    if (!currencyCode || currencyCode === "HKD" || currencyCode === "OTHER")
+      return;
     setFetchingRate(true);
     try {
-      const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${currencyCode}`);
-      if (!res.ok) throw new Error('API error');
+      const res = await fetch(
+        `https://api.exchangerate-api.com/v4/latest/${currencyCode}`,
+      );
+      if (!res.ok) throw new Error("API error");
       const data = await res.json();
       const rate = data.rates?.HKD;
       if (rate) {
-        setExchangeRates(prev => ({ ...prev, [currencyCode]: rate.toString() }));
+        setExchangeRates((prev) => ({
+          ...prev,
+          [currencyCode]: rate.toString(),
+        }));
         showToast(`已取得 ${currencyCode} → HKD 匯率`);
       } else {
         showToast("找不到匯率", "error");
@@ -909,39 +1002,48 @@ function ExpensesPageContent() {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
-            <div className="mb-4 text-6xl animate-bounce">✈️</div>
-            <div className="text-lg font-bold mb-2">旅程記帳</div>
-            <div className="flex items-center gap-2 text-gray-500">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
-            </div>
+          <div className="mb-4 text-6xl animate-bounce">✈️</div>
+          <div className="text-lg font-bold mb-2">旅程記帳</div>
+          <div className="flex items-center gap-2 text-gray-500">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <div
+              className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+              style={{ animationDelay: "0.2s" }}
+            />
+            <div
+              className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+              style={{ animationDelay: "0.4s" }}
+            />
+          </div>
         </div>
       </div>
     );
   }
 
-  // 情況 B: 有 code 但找不到資料 -> 顯示錯誤 (Force English)
+  // 情況 B: 有 code 但找不到資料 -> 顯示錯誤
   if (code && !data) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center px-4">
-            <div className="mb-4 flex justify-center">
-              <RotateCw className="w-12 h-12 text-blue-500" />
-            </div>
-            <div className="text-sm text-gray-400 mb-6">Code: {code}</div>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-8 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors font-medium"
-            >
-                Refresh Page
-            </button>
-            <button
-              onClick={() => router.push('/expenses')}
-              className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
-            >
-                Create New Trip
-            </button>
+          <div className="mb-4 flex justify-center">
+            <RotateCw className="w-12 h-12 text-blue-500" />
+          </div>
+          <div className="text-gray-300 font-medium mb-1">搵唔到呢個旅程</div>
+          <div className="text-sm text-gray-500 mb-6 font-mono">
+            Code: {code}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-8 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors font-medium"
+          >
+            重新載入
+          </button>
+          <button
+            onClick={() => router.push("/expenses")}
+            className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
+          >
+            建立新旅程
+          </button>
         </div>
       </div>
     );
@@ -952,82 +1054,104 @@ function ExpensesPageContent() {
     return (
       <div className="min-h-screen bg-black p-4 pt-12 text-white pb-20 relative overflow-hidden">
         {/* Background decorative orbs */}
-        <div className="fixed top-20 -left-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
+        <div
+          className="fixed top-20 -left-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, #3b82f6 0%, transparent 70%)",
+          }}
         />
-        <div className="fixed bottom-20 -right-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)' }}
+        <div
+          className="fixed bottom-20 -right-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)",
+          }}
         />
-        <Toaster position="bottom-center" theme="dark" richColors expand={false} />
+        <Toaster
+          position="bottom-center"
+          theme="dark"
+          richColors
+          expand={false}
+        />
         <div className="max-w-md mx-auto relative">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-3" style={{ filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}>✈️</div>
-              <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">旅程記帳</h1>
-              <p className="text-gray-500 text-sm mt-2">輕鬆分帳，旅途無憂</p>
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div
+              className="text-6xl mb-3"
+              style={{ filter: "drop-shadow(0 0 20px rgba(59,130,246,0.3))" }}
+            >
+              ✈️
             </div>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+              旅程記帳
+            </h1>
+            <p className="text-gray-500 text-sm mt-2">輕鬆分帳，旅途無憂</p>
+          </div>
 
-            {/* #1: Join existing trip */}
-            <div className="bg-[#1c1c1e] rounded-2xl p-4 mb-6 border border-gray-800">
-              <div className="text-sm text-gray-400 mb-2">🔗 加入旅程</div>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono"
-                  placeholder="輸入旅程碼"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  maxLength={8}
-                  onKeyDown={(e) => e.key === 'Enter' && handleJoinTrip()}
-                />
-                <button
-                  onClick={handleJoinTrip}
-                  className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
-                >
-                  加入
-                </button>
-              </div>
+          {/* #1: Join existing trip */}
+          <div className="bg-[#1c1c1e] rounded-2xl p-4 mb-6 border border-gray-800">
+            <div className="text-sm text-gray-400 mb-2">🔗 加入旅程</div>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono"
+                placeholder="輸入旅程碼"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                maxLength={8}
+                onKeyDown={(e) => e.key === "Enter" && handleJoinTrip()}
+              />
+              <button
+                onClick={handleJoinTrip}
+                className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
+              >
+                加入
+              </button>
             </div>
+          </div>
 
-            {/* #9: Recent trips */}
-            {recentTrips.length > 0 && (
-              <div className="mb-6">
-                <div className="text-sm text-gray-400 mb-2">📋 最近旅程</div>
-                <div className="space-y-2">
-                  {recentTrips.map(trip => (
-                    <button
-                      key={trip.code}
-                      onClick={() => router.push(`/expenses?code=${trip.code}`)}
-                      className="w-full flex items-center justify-between p-3 bg-[#1c1c1e] rounded-xl border border-gray-800 hover:bg-gray-800/80 transition-colors text-left"
-                    >
-                      <div>
-                        <div className="font-medium">{trip.name}</div>
-                        <div className="text-xs text-gray-500 font-mono">{trip.code}</div>
+          {/* #9: Recent trips */}
+          {recentTrips.length > 0 && (
+            <div className="mb-6">
+              <div className="text-sm text-gray-400 mb-2">📋 最近旅程</div>
+              <div className="space-y-2">
+                {recentTrips.map((trip) => (
+                  <button
+                    key={trip.code}
+                    onClick={() => router.push(`/expenses?code=${trip.code}`)}
+                    className="w-full flex items-center justify-between p-3 bg-[#1c1c1e] rounded-xl border border-gray-800 hover:bg-gray-800/80 transition-colors text-left"
+                  >
+                    <div>
+                      <div className="font-medium">{trip.name}</div>
+                      <div className="text-xs text-gray-500 font-mono">
+                        {trip.code}
                       </div>
-                      <div className="text-xs text-gray-600">{trip.date}</div>
-                    </button>
-                  ))}
-                </div>
+                    </div>
+                    <div className="text-xs text-gray-600">{trip.date}</div>
+                  </button>
+                ))}
               </div>
-            )}
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex-1 border-t border-gray-800" />
-              <span className="text-gray-600 text-xs">或者建立新旅程</span>
-              <div className="flex-1 border-t border-gray-800" />
             </div>
+          )}
 
-            <input
+          {/* Divider */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 border-t border-gray-800" />
+            <span className="text-gray-600 text-xs">或者建立新旅程</span>
+            <div className="flex-1 border-t border-gray-800" />
+          </div>
+
+          <input
             className="w-full p-4 bg-[#1c1c1e] rounded-xl mb-4 border border-gray-800"
             placeholder="旅程名稱 (如: 東京之旅)"
             value={tripName}
             onChange={(e) => setTripName(e.target.value)}
-            />
+          />
 
-            {/* #5: Member avatar preview */}
-            {memberNames.some(n => n.trim()) && (
-              <div className="flex gap-2 mb-3 px-1">
-                {memberNames.filter(n => n.trim()).map((n, i) => (
+          {/* #5: Member avatar preview */}
+          {memberNames.some((n) => n.trim()) && (
+            <div className="flex gap-2 mb-3 px-1">
+              {memberNames
+                .filter((n) => n.trim())
+                .map((n, i) => (
                   <div
                     key={i}
                     className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
@@ -1036,46 +1160,57 @@ function ExpensesPageContent() {
                     {getAvatarText(n.trim())}
                   </div>
                 ))}
+            </div>
+          )}
+
+          <div className="space-y-2 mb-6">
+            {memberNames.map((n, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  className="flex-1 p-4 bg-[#1c1c1e] rounded-xl border border-gray-800"
+                  placeholder={`成員 ${i + 1}`}
+                  value={n}
+                  onChange={(e) => {
+                    const next = [...memberNames];
+                    next[i] = e.target.value;
+                    setMemberNames(next);
+                  }}
+                />
+                {memberNames.length > 2 && (
+                  <button
+                    onClick={() =>
+                      setMemberNames(memberNames.filter((_, idx) => idx !== i))
+                    }
+                    className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-red-400"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-            )}
+            ))}
+          </div>
 
-            <div className="space-y-2 mb-6">
-                {memberNames.map((n, i) => (
-                <div key={i} className="flex gap-2">
-                    <input
-                        className="flex-1 p-4 bg-[#1c1c1e] rounded-xl border border-gray-800"
-                        placeholder={`成員 ${i + 1}`}
-                        value={n}
-                        onChange={(e) => {
-                        const next = [...memberNames];
-                        next[i] = e.target.value;
-                        setMemberNames(next);
-                        }}
-                    />
-                    {memberNames.length > 2 && (
-                        <button
-                          onClick={() => setMemberNames(memberNames.filter((_, idx) => idx !== i))}
-                          className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-red-400"
-                        >
-                          ✕
-                        </button>
-                    )}
-                </div>
-                ))}
-            </div>
-
-            <div className="flex gap-2">
-                <button onClick={() => setMemberNames([...memberNames, ""])} className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-gray-400">
-                    +
-                </button>
-                <button
-                  onClick={handleCreateTrip}
-                  disabled={submitting}
-                  className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                    {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 建立中...</> : '🚀 開始旅程'}
-                </button>
-            </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMemberNames([...memberNames, ""])}
+              className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-gray-400"
+            >
+              +
+            </button>
+            <button
+              onClick={handleCreateTrip}
+              disabled={submitting}
+              className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> 建立中...
+                </>
+              ) : (
+                "🚀 開始旅程"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1124,157 +1259,193 @@ function ExpensesPageContent() {
         </div>
       )}
       <div className="max-w-md mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            {/* Action Buttons Grid */}
-            <div className="grid grid-cols-5 gap-2 mb-4">
-              <button
-                onClick={() => setShowFavoritesModal(true)}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="如何收藏此 App"
-              >
-                <Star className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleExportExcel}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="匯出為 Excel 文件"
-              >
-                <FileSpreadsheet className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleShareLink}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-blue-600/30 to-blue-700/30 rounded-2xl text-blue-400 hover:from-blue-600/50 hover:to-blue-700/50 transition-all active:scale-95 border border-blue-500/20"
-                title="分享連結"
-              >
-                <Share2 className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => router.push('/expenses')}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="建立新旅程"
-              >
-                <FolderPlus className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => window.location.reload()}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="重新整理頁面"
-              >
-                <RotateCw className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Title with Language Toggle */}
-            <div className="flex items-center justify-between mb-2">
-              <h1 className="text-3xl font-extrabold tracking-tight">{data.name}</h1>
-              <button
-                onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 hover:bg-gray-800 transition-colors flex-shrink-0"
-              >
-                {language === 'zh' ? 'EN' : '中'}
-              </button>
-            </div>
-            {/* #8: Trip code display + copy */}
+        {/* Header */}
+        <div className="mb-6">
+          {/* Action Buttons Row */}
+          <div className="flex gap-2 mb-4">
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(data.code)
-                  .then(() => showToast("旅程碼已複製"))
-                  .catch(() => {});
-              }}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors mb-6"
+              onClick={handleShareLink}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-blue-600/20 border border-blue-500/30 rounded-2xl text-blue-400 hover:bg-blue-600/30 transition-all active:scale-95 text-xs font-medium"
             >
-              <span className="font-mono tracking-widest">{data.code}</span>
-              <Copy className="w-3 h-3" />
+              <Share2 className="w-4 h-4 flex-shrink-0" />
+              <span>分享</span>
+            </button>
+            <button
+              onClick={handleExportExcel}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[#1c1c1e] border border-gray-800 rounded-2xl text-gray-300 hover:bg-gray-800 transition-all active:scale-95 text-xs font-medium"
+            >
+              <FileSpreadsheet className="w-4 h-4 flex-shrink-0" />
+              <span>匯出</span>
+            </button>
+            <button
+              onClick={() => router.push("/expenses")}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[#1c1c1e] border border-gray-800 rounded-2xl text-gray-300 hover:bg-gray-800 transition-all active:scale-95 text-xs font-medium"
+            >
+              <FolderPlus className="w-4 h-4 flex-shrink-0" />
+              <span>新旅程</span>
+            </button>
+            <button
+              onClick={reloadTrip}
+              className="flex-none flex items-center justify-center w-10 py-2.5 bg-[#1c1c1e] border border-gray-800 rounded-2xl text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-all active:scale-95"
+              title="重新整理"
+            >
+              <RotateCw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowFavoritesModal(true)}
+              className="flex-none flex items-center justify-center w-10 py-2.5 bg-[#1c1c1e] border border-gray-800 rounded-2xl text-gray-500 hover:bg-gray-800 hover:text-yellow-400 transition-all active:scale-95"
+              title="收藏此 App"
+            >
+              <Star className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Favorites Modal */}
-          {showFavoritesModal && (
-            <div
-              className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-              onClick={() => setShowFavoritesModal(false)}
+          {/* Title with Language Toggle */}
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-extrabold tracking-tight">
+              {data.name}
+            </h1>
+            <button
+              onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
+              className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 hover:bg-gray-800 transition-colors flex-shrink-0"
             >
-              <div
-                className="bg-[#1c1c1e] rounded-2xl p-6 max-w-md w-full border border-gray-800"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h2 className="text-xl font-bold mb-4">⭐ 如何收藏此 App？</h2>
-                <div className="space-y-4 text-sm text-gray-300">
-                  <div>
-                    <div className="font-semibold text-white mb-2">📱 iOS（推薦）：</div>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li>點擊下方「分享」按鈕 <span className="text-blue-400">(↑)</span></li>
-                      <li>選擇「加入主畫面」</li>
-                      <li>或選擇「加入我的最愛」</li>
-                    </ol>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white mb-2">🤖 Android：</div>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li>點擊瀏覽器選單 <span className="text-blue-400">(⋮)</span></li>
-                      <li>選擇「安裝應用程式」或「加到主螢幕」</li>
-                    </ol>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowFavoritesModal(false)}
-                  className="w-full mt-6 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
-                >
-                  知道了
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Total Card - Premium Gradient */}
-          <div className="mb-6 p-6 rounded-3xl shadow-lg border border-gray-700/50 relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+              {language === "zh" ? "EN" : "中"}
+            </button>
+          </div>
+          {/* #8: Trip code display + copy */}
+          <button
+            onClick={() => {
+              navigator.clipboard
+                .writeText(data.code)
+                .then(() => showToast("旅程碼已複製"))
+                .catch(() => {});
             }}
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors mb-6"
           >
-            {/* Subtle glow orb */}
-            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-20"
-              style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
-            />
-            <div className="relative">
-              <div className="text-blue-300/70 text-sm mb-1">{t.totalExpense}</div>
-              <div className="text-4xl font-extrabold text-white tracking-tight">
-                  <span className="text-blue-300/60 text-2xl mr-1">HKD</span>
-                  {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-              </div>
-              {/* Per-person average + record count */}
-              {data.members.length > 0 && data.expenses.length > 0 && (
-                <div className="flex gap-3 mt-2 text-sm text-blue-200/50">
-                  <span>👤 人均 ≈ ${(data.expenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}</span>
-                  <span>📝 {data.expenses.length} 筆</span>
-                </div>
-              )}
+            <span className="font-mono tracking-widest">{data.code}</span>
+            <Copy className="w-3 h-3" />
+          </button>
+        </div>
 
-              {/* Rainbow Proportion Bar + Category Legend */}
-              {data.expenses.length > 0 && (() => {
-                const total = data.expenses.reduce((s, e) => s + e.amountHKD, 0);
+        {/* Favorites Modal */}
+        {showFavoritesModal && (
+          <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowFavoritesModal(false)}
+          >
+            <div
+              className="bg-[#1c1c1e] rounded-2xl p-6 max-w-md w-full border border-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold mb-4">⭐ 如何收藏此 App？</h2>
+              <div className="space-y-4 text-sm text-gray-300">
+                <div>
+                  <div className="font-semibold text-white mb-2">
+                    📱 iOS（推薦）：
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>
+                      點擊下方「分享」按鈕{" "}
+                      <span className="text-blue-400">(↑)</span>
+                    </li>
+                    <li>選擇「加入主畫面」</li>
+                    <li>或選擇「加入我的最愛」</li>
+                  </ol>
+                </div>
+                <div>
+                  <div className="font-semibold text-white mb-2">
+                    🤖 Android：
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>
+                      點擊瀏覽器選單 <span className="text-blue-400">(⋮)</span>
+                    </li>
+                    <li>選擇「安裝應用程式」或「加到主螢幕」</li>
+                  </ol>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFavoritesModal(false)}
+                className="w-full mt-6 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
+              >
+                知道了
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Total Card - Premium Gradient */}
+        <div
+          className="mb-6 p-6 rounded-3xl shadow-lg border border-gray-700/50 relative overflow-hidden"
+          style={{
+            background:
+              "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+          }}
+        >
+          {/* Subtle glow orb */}
+          <div
+            className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-20"
+            style={{
+              background:
+                "radial-gradient(circle, #3b82f6 0%, transparent 70%)",
+            }}
+          />
+          <div className="relative">
+            <div className="text-blue-300/70 text-sm mb-1">
+              {t.totalExpense}
+            </div>
+            <div className="text-4xl font-extrabold text-white tracking-tight">
+              <span className="text-blue-300/60 text-2xl mr-1">HKD</span>
+              {data.expenses
+                .reduce((s, e) => s + e.amountHKD, 0)
+                .toLocaleString("en", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}
+            </div>
+            {/* Per-person average + record count */}
+            {data.members.length > 0 && data.expenses.length > 0 && (
+              <div className="flex gap-3 mt-2 text-sm text-blue-200/50">
+                <span>
+                  👤 人均 ≈ $
+                  {(
+                    data.expenses.reduce((s, e) => s + e.amountHKD, 0) /
+                    data.members.length
+                  ).toFixed(1)}
+                </span>
+                <span>📝 {data.expenses.length} 筆</span>
+              </div>
+            )}
+
+            {/* Rainbow Proportion Bar + Category Legend */}
+            {data.expenses.length > 0 &&
+              (() => {
+                const total = data.expenses.reduce(
+                  (s, e) => s + e.amountHKD,
+                  0,
+                );
                 if (total === 0) return null;
 
-                const categoryTotals = CATEGORIES.map(cat => ({
+                const categoryTotals = CATEGORIES.map((cat) => ({
                   id: cat.id,
                   label: cat.label,
                   icon: cat.icon,
                   amount: data.expenses
-                    .filter(e => e.category === cat.id)
+                    .filter((e) => e.category === cat.id)
                     .reduce((s, e) => s + e.amountHKD, 0),
-                })).filter(c => c.amount > 0);
+                })).filter((c) => c.amount > 0);
 
                 if (categoryTotals.length === 0) return null;
 
                 return (
                   <div className="mt-4">
                     <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
-                      {categoryTotals.map(cat => (
+                      {categoryTotals.map((cat) => (
                         <div
                           key={cat.id}
                           style={{
                             width: `${(cat.amount / total) * 100}%`,
-                            backgroundColor: CATEGORY_COLORS[cat.id] || '#6b7280'
+                            backgroundColor:
+                              CATEGORY_COLORS[cat.id] || "#6b7280",
                           }}
                           className="transition-all duration-500"
                         />
@@ -1282,490 +1453,600 @@ function ExpensesPageContent() {
                     </div>
                     {/* Category Legend */}
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {categoryTotals.map(cat => (
-                        <div key={cat.id} className="flex items-center gap-1 text-xs text-gray-400">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
-                          <span>{cat.icon} {cat.label}</span>
-                          <span className="text-gray-600">{((cat.amount / total) * 100).toFixed(0)}%</span>
+                      {categoryTotals.map((cat) => (
+                        <div
+                          key={cat.id}
+                          className="flex items-center gap-1 text-xs text-gray-400"
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: CATEGORY_COLORS[cat.id] }}
+                          />
+                          <span>
+                            {cat.icon} {cat.label}
+                          </span>
+                          <span className="text-gray-600">
+                            {((cat.amount / total) * 100).toFixed(0)}%
+                          </span>
                         </div>
                       ))}
                     </div>
                   </div>
                 );
               })()}
+          </div>
+        </div>
+
+        {/* Add Expense Form - Moved to top */}
+        <div
+          ref={formRef}
+          className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all ${
+            editingExpenseId
+              ? "bg-[#1a1a2e] border-yellow-600/50 ring-1 ring-yellow-600/30"
+              : "bg-[#1c1c1e] border-gray-800"
+          }`}
+        >
+          {/* #3: Edit mode banner */}
+          {editingExpenseId && (
+            <div className="flex items-center justify-between bg-yellow-600/20 text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg -mt-1">
+              <span>✏️ 編輯模式</span>
+              <button
+                onClick={handleCancelEdit}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕ 取消
+              </button>
             </div>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            {CATEGORIES.map((c) => {
+              const color = CATEGORY_COLORS[c.id] || "#6b7280";
+              const isSelected = category === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setCategory(c.id)}
+                  className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center ${
+                    isSelected ? "font-bold scale-105" : "hover:scale-105"
+                  }`}
+                  style={{
+                    borderColor: color,
+                    backgroundColor: isSelected ? color : "transparent",
+                  }}
+                >
+                  <span className="text-lg">{c.icon}</span>
+                  <span className="text-[11px] leading-tight mt-1 px-1 text-center">
+                    {t[c.id as keyof typeof t] || c.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Add Expense Form - Moved to top */}
-          <div ref={formRef} className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all ${
-            editingExpenseId
-              ? 'bg-[#1a1a2e] border-yellow-600/50 ring-1 ring-yellow-600/30'
-              : 'bg-[#1c1c1e] border-gray-800'
-          }`}>
-             {/* #3: Edit mode banner */}
-             {editingExpenseId && (
-               <div className="flex items-center justify-between bg-yellow-600/20 text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg -mt-1">
-                 <span>✏️ 編輯模式</span>
-                 <button onClick={handleCancelEdit} className="text-gray-400 hover:text-white">✕ 取消</button>
-               </div>
-             )}
-             <div className="grid grid-cols-3 gap-2">
-                {CATEGORIES.map((c) => {
-                  const color = CATEGORY_COLORS[c.id] || '#6b7280';
-                  const isSelected = category === c.id;
+          {/* 2x2 Input Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Currency Selector Button */}
+            <select
+              value={currency}
+              onChange={(e) => {
+                const newCurrency = e.target.value;
+                setCurrency(newCurrency);
+                if (newCurrency === "OTHER") {
+                  setCustomCurrency("");
+                }
+              }}
+              className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                backgroundPosition: "right 0.5rem center",
+                backgroundRepeat: "no-repeat",
+                backgroundSize: "1.5em 1.5em",
+              }}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.flag} {c.code}{" "}
+                  {language === "zh" && c.code === "HKD" ? "港幣" : ""}
+                </option>
+              ))}
+            </select>
+
+            {/* Amount Input */}
+            <input
+              type="number"
+              step="0.01"
+              placeholder={`${t.amountPh} (${getFinalCurrency()})`}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+            />
+
+            {/* Date Picker */}
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+            />
+
+            {/* Notes Input */}
+            <input
+              type="text"
+              placeholder={t.notePh}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+            />
+          </div>
+
+          {/* Custom Currency Input */}
+          {currency === "OTHER" && (
+            <input
+              type="text"
+              placeholder="輸入幣種代碼 (如: SGD, MYR)"
+              value={customCurrency}
+              onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
+              className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600"
+              maxLength={5}
+            />
+          )}
+
+          {/* Exchange Rate Input (shown for non-HKD currencies) */}
+          {((currency !== "HKD" && currency !== "OTHER") ||
+            (currency === "OTHER" && customCurrency.trim())) && (
+            <div className="flex items-center gap-2 bg-black px-3 py-2 rounded-xl border border-gray-800">
+              <span className="text-xs text-gray-400 whitespace-nowrap">
+                匯率 ({getFinalCurrency()} → HKD):
+              </span>
+              <input
+                type="number"
+                step="0.000001"
+                placeholder="0.000000"
+                value={exchangeRates[getFinalCurrency()] || ""}
+                onChange={(e) => {
+                  const code = getFinalCurrency();
+                  setExchangeRates((prev) => ({
+                    ...prev,
+                    [code]: e.target.value,
+                  }));
+                }}
+                className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
+              />
+              {/* #10: Auto-fetch button */}
+              <button
+                onClick={() => fetchExchangeRate(getFinalCurrency())}
+                disabled={fetchingRate}
+                className="px-2 py-2 bg-blue-600/20 text-blue-400 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {fetchingRate ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  "⚡ 自動"
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* HKD Conversion Display */}
+          {getFinalCurrency() !== "HKD" && amount && calculateHKD() > 0 && (
+            <div className="text-xs text-gray-400 text-center">
+              ≈ HKD {calculateHKD().toFixed(2)}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {/* 誰付錢 - Avatar Style */}
+            <div className="space-y-2">
+              <span className="text-xs text-gray-500">{t.whoPaid}:</span>
+              <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide px-1 py-2">
+                {data.members.map((m, idx) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setPayerId(m.id)}
+                    className={`relative flex-shrink-0 flex flex-col items-center gap-1 transition-all ${
+                      payerId === m.id
+                        ? "scale-110"
+                        : "opacity-60 hover:opacity-100 hover:scale-105"
+                    }`}
+                    title={m.name}
+                  >
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
+                        payerId === m.id
+                          ? "border-white shadow-lg shadow-blue-500/50"
+                          : "border-gray-700"
+                      }`}
+                      style={{ backgroundColor: getAvatarColor(idx) }}
+                    >
+                      {getAvatarText(m.name)}
+                      {payerId === m.id && (
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center text-xs">
+                          ✓
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className={`text-[10px] max-w-[52px] truncate ${payerId === m.id ? "text-white font-medium" : "text-gray-500"}`}
+                    >
+                      {m.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 誰分擔 - Avatar Style with 全選/全不選 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">{t.whoSplit}:</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() =>
+                      setParticipantIds(data.members.map((m) => m.id))
+                    }
+                    className="text-xs px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
+                  >
+                    {t.selectAll}
+                  </button>
+                  <button
+                    onClick={() => setParticipantIds([])}
+                    className="text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                  >
+                    {t.deselectAll}
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide px-1 py-2">
+                {data.members.map((m, idx) => {
+                  const isSelected = participantIds.includes(m.id);
                   return (
                     <button
-                      key={c.id}
-                      onClick={() => setCategory(c.id)}
-                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center ${
-                        isSelected ? 'font-bold scale-105' : 'hover:scale-105'
+                      key={m.id}
+                      onClick={() =>
+                        setParticipantIds((prev) =>
+                          prev.includes(m.id)
+                            ? prev.filter((p) => p !== m.id)
+                            : [...prev, m.id],
+                        )
+                      }
+                      className={`relative flex-shrink-0 flex flex-col items-center gap-1 transition-all ${
+                        isSelected
+                          ? "scale-110"
+                          : "opacity-60 hover:opacity-100 hover:scale-105"
                       }`}
-                      style={{
-                        borderColor: color,
-                        backgroundColor: isSelected ? color : 'transparent',
-                      }}
+                      title={m.name}
                     >
-                      <span className="text-lg">{c.icon}</span>
-                      <span className="text-[11px] leading-tight mt-1 px-1 text-center">
-                        {t[c.id as keyof typeof t] || c.label}
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
+                          isSelected
+                            ? "border-white ring-2 ring-offset-2 ring-offset-black ring-blue-500 shadow-lg shadow-blue-500/50"
+                            : "border-gray-700"
+                        }`}
+                        style={{ backgroundColor: getAvatarColor(idx) }}
+                      >
+                        {getAvatarText(m.name)}
+                        {isSelected && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className={`text-[10px] max-w-[52px] truncate ${isSelected ? "text-white font-medium" : "text-gray-500"}`}
+                      >
+                        {m.name}
                       </span>
                     </button>
                   );
                 })}
-             </div>
+              </div>
+            </div>
 
-             {/* 2x2 Input Grid */}
-             <div className="grid grid-cols-2 gap-3">
-               {/* Currency Selector Button */}
-               <select
-                 value={currency}
-                 onChange={(e) => {
-                   const newCurrency = e.target.value;
-                   setCurrency(newCurrency);
-                   if (newCurrency === 'OTHER') {
-                     setCustomCurrency('');
-                   }
-                 }}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
-                 style={{
-                   backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                   backgroundPosition: 'right 0.5rem center',
-                   backgroundRepeat: 'no-repeat',
-                   backgroundSize: '1.5em 1.5em',
-                 }}
-               >
-                 {CURRENCIES.map(c => (
-                   <option key={c.code} value={c.code}>
-                     {c.flag} {c.code} {language === 'zh' && c.code === 'HKD' ? '港幣' : ''}
-                   </option>
-                 ))}
-               </select>
+            {/* Split Mode Toggle */}
+            {participantIds.length > 0 && (
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap">
+                  {t.splitMode}:
+                </span>
+                <button
+                  onClick={() => {
+                    setSplitMode("equal");
+                    setCustomSplits({});
+                  }}
+                  className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
+                    splitMode === "equal"
+                      ? "bg-blue-600 border-blue-600 text-white font-bold"
+                      : "border-gray-700 text-gray-400 hover:bg-gray-800"
+                  }`}
+                >
+                  {t.equalSplit}
+                </button>
+                <button
+                  onClick={() => {
+                    setSplitMode("custom");
+                    const newSplits: Record<string, string> = {};
+                    participantIds.forEach((id) => {
+                      newSplits[id] = "";
+                    });
+                    setCustomSplits(newSplits);
+                  }}
+                  className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
+                    splitMode === "custom"
+                      ? "bg-blue-600 border-blue-600 text-white font-bold"
+                      : "border-gray-700 text-gray-400 hover:bg-gray-800"
+                  }`}
+                >
+                  {t.customSplit}
+                </button>
+              </div>
+            )}
 
-               {/* Amount Input */}
-               <input
-                 type="number"
-                 step="0.01"
-                 placeholder={`${t.amountPh} (${getFinalCurrency()})`}
-                 value={amount}
-                 onChange={(e) => setAmount(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
-               />
-
-               {/* Date Picker */}
-               <input
-                 type="date"
-                 value={date}
-                 onChange={(e) => setDate(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
-               />
-
-               {/* Notes Input */}
-               <input
-                 type="text"
-                 placeholder={t.notePh}
-                 value={note}
-                 onChange={(e) => setNote(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
-               />
-             </div>
-
-             {/* Custom Currency Input */}
-             {currency === 'OTHER' && (
-               <input
-                 type="text"
-                 placeholder="輸入幣種代碼 (如: SGD, MYR)"
-                 value={customCurrency}
-                 onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
-                 className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600"
-                 maxLength={5}
-               />
-             )}
-
-             {/* Exchange Rate Input (shown for non-HKD currencies) */}
-             {((currency !== 'HKD' && currency !== 'OTHER') ||
-               (currency === 'OTHER' && customCurrency.trim())) && (
-               <div className="flex items-center gap-2 bg-black px-3 py-2 rounded-xl border border-gray-800">
-                 <span className="text-xs text-gray-400 whitespace-nowrap">
-                   匯率 ({getFinalCurrency()} → HKD):
-                 </span>
-                 <input
-                   type="number"
-                   step="0.000001"
-                   placeholder="0.000000"
-                   value={exchangeRates[getFinalCurrency()] || ''}
-                   onChange={(e) => {
-                     const code = getFinalCurrency();
-                     setExchangeRates(prev => ({
-                       ...prev,
-                       [code]: e.target.value,
-                     }));
-                   }}
-                   className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
-                 />
-                 {/* #10: Auto-fetch button */}
-                 <button
-                   onClick={() => fetchExchangeRate(getFinalCurrency())}
-                   disabled={fetchingRate}
-                   className="px-2 py-2 bg-blue-600/20 text-blue-400 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50 whitespace-nowrap"
-                 >
-                   {fetchingRate ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚡ 自動'}
-                 </button>
-               </div>
-             )}
-
-             {/* HKD Conversion Display */}
-             {getFinalCurrency() !== 'HKD' && amount && calculateHKD() > 0 && (
-               <div className="text-xs text-gray-400 text-center">
-                 ≈ HKD {calculateHKD().toFixed(2)}
-               </div>
-             )}
-
-             <div className="space-y-3">
-                {/* 誰付錢 - Avatar Style */}
-                <div className="space-y-2">
-                  <span className="text-xs text-gray-500">{t.whoPaid}:</span>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide p-4">
-                    {data.members.map((m, idx) => (
-                      <button
-                        key={m.id}
-                        onClick={() => setPayerId(m.id)}
-                        className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                          payerId === m.id
-                            ? 'border-white scale-110 shadow-lg shadow-blue-500/50'
-                            : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
-                        }`}
-                        style={{
-                          backgroundColor: getAvatarColor(idx),
-                        }}
-                        title={m.name}
-                      >
-                        {getAvatarText(m.name)}
-                        {payerId === m.id && (
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center text-xs">
-                            ✓
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+            {/* Custom Split Inputs */}
+            {splitMode === "custom" && participantIds.length > 0 && (
+              <div className="bg-black p-3 rounded-xl border border-gray-800 space-y-2">
+                <div className="text-xs text-gray-400 mb-2">
+                  輸入各人分擔金額 (HKD):
                 </div>
-
-                {/* 誰分擔 - Avatar Style with 全選/全不選 */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{t.whoSplit}:</span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setParticipantIds(data.members.map(m => m.id))}
-                        className="text-xs px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
-                      >
-                        {t.selectAll}
-                      </button>
-                      <button
-                        onClick={() => setParticipantIds([])}
-                        className="text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors font-medium"
-                      >
-                        {t.deselectAll}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide p-4">
-                    {data.members.map((m, idx) => {
-                      const isSelected = participantIds.includes(m.id);
-                      return (
-                        <button
-                          key={m.id}
-                          onClick={() => setParticipantIds(prev =>
-                            prev.includes(m.id)
-                              ? prev.filter(p => p !== m.id)
-                              : [...prev, m.id]
-                          )}
-                          className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                            isSelected
-                              ? 'border-white ring-2 ring-offset-2 ring-offset-black ring-blue-500 scale-110 shadow-lg shadow-blue-500/50'
-                              : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
-                          }`}
-                          style={{
-                            backgroundColor: getAvatarColor(idx),
-                          }}
-                          title={m.name}
-                        >
-                          {getAvatarText(m.name)}
-                          {isSelected && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Split Mode Toggle */}
-                {participantIds.length > 0 && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">{t.splitMode}:</span>
-                    <button
-                      onClick={() => {
-                        setSplitMode('equal');
-                        setCustomSplits({});
-                      }}
-                      className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
-                        splitMode === 'equal'
-                          ? 'bg-blue-600 border-blue-600 text-white font-bold'
-                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                      }`}
-                    >
-                      {t.equalSplit}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSplitMode('custom');
-                        const newSplits: Record<string, string> = {};
-                        participantIds.forEach(id => {
-                          newSplits[id] = '';
-                        });
-                        setCustomSplits(newSplits);
-                      }}
-                      className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
-                        splitMode === 'custom'
-                          ? 'bg-blue-600 border-blue-600 text-white font-bold'
-                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                      }`}
-                    >
-                      {t.customSplit}
-                    </button>
-                  </div>
-                )}
-
-                {/* Custom Split Inputs */}
-                {splitMode === 'custom' && participantIds.length > 0 && (
-                  <div className="bg-black p-3 rounded-xl border border-gray-800 space-y-2">
-                    <div className="text-xs text-gray-400 mb-2">輸入各人分擔金額 (HKD):</div>
-                    {participantIds.map(pid => {
-                      const member = data.members.find(m => m.id === pid);
-                      if (!member) return null;
-
-                      return (
-                        <div key={pid} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-300 w-20">{member.name}:</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={customSplits[pid] || ''}
-                            onChange={(e) => {
-                              setCustomSplits(prev => ({
-                                ...prev,
-                                [pid]: e.target.value,
-                              }));
-                            }}
-                            className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm"
-                          />
-                        </div>
-                      );
-                    })}
-
-                    {/* Validation Display */}
-                    {(() => {
-                      const total = calculateHKD();
-                      const splitTotal = Object.values(customSplits)
-                        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-                      const diff = Math.abs(total - splitTotal);
-
-                      if (total > 0 && splitTotal > 0) {
-                        return (
-                          <div className={`text-xs mt-2 ${diff <= 1 ? 'text-green-400' : 'text-red-400'}`}>
-                            已分配: ${splitTotal.toFixed(1)} / ${total.toFixed(1)}
-                            {diff > 1 && ` (差額: $${diff.toFixed(1)})`}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                )}
-             </div>
-
-             {editingExpenseId ? (
-               <div className="space-y-2">
-                 <button
-                   onClick={handleUpdateExpense}
-                   disabled={submitting}
-                   className="w-full py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                 >
-                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 更新中...</> : '💾 更新記錄'}
-                 </button>
-                 <div className="flex gap-2">
-                   <button
-                     onClick={handleCancelEdit}
-                     disabled={submitting}
-                     className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
-                   >
-                     取消
-                   </button>
-                   <button
-                     onClick={handleDeleteCurrentExpense}
-                     disabled={submitting}
-                     className="flex-1 py-3 bg-red-600 rounded-xl font-bold hover:bg-red-500 transition-colors disabled:opacity-50"
-                   >
-                     🗑️ 刪除
-                   </button>
-                 </div>
-               </div>
-             ) : (
-               <button
-                 onClick={handleAddExpense}
-                 disabled={submitting}
-                 className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-               >
-                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 新增中...</> : t.addRecord}
-               </button>
-             )}
-          </div>
-
-          {/* Balances Section */}
-          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <button
-              onClick={() => setBalancesExpanded(!balancesExpanded)}
-              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
-            >
-              <h3 className="font-bold text-gray-300">{t.balances}</h3>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${balancesExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {balancesExpanded && (
-              <div className="px-4 pb-4 space-y-2">
-                {Object.entries(balances).map(([id, bal]) => {
-                  const member = data.members.find((m) => m.id === id);
+                {participantIds.map((pid) => {
+                  const member = data.members.find((m) => m.id === pid);
                   if (!member) return null;
-                  const memberIdx = data.members.findIndex(m => m.id === id);
-
-                  // Calculate 總墊支 (Total Paid)
-                  const totalPaid = data.expenses
-                    .filter(e => e.payerId === id)
-                    .reduce((sum, e) => sum + e.amountHKD, 0);
-
-                  // Calculate 總消費 (Total Consumed)
-                  const totalConsumed = data.expenses
-                    .filter(e => e.participants.some(p => {
-                      const memberId = typeof p === 'string' ? p : p.id;
-                      return memberId === id;
-                    }))
-                    .reduce((sum, e) => {
-                      // Find this member's participant record
-                      const participant = e.participants.find(p => {
-                        const memberId = typeof p === 'string' ? p : p.id;
-                        return memberId === id;
-                      });
-
-                      if (!participant) return sum;
-
-                      // Check if custom split exists
-                      const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
-                      const share = customAmount !== undefined
-                        ? customAmount
-                        : e.amountHKD / e.participants.length;
-
-                      return sum + share;
-                    }, 0);
-
-                  const maxAmount = Math.max(totalPaid, totalConsumed, 1);
 
                   return (
-                    <div key={id} className="bg-black p-3 rounded-xl">
-                      <div className="flex items-center gap-3 mb-2">
-                        {/* Avatar */}
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: getAvatarColor(memberIdx) }}
-                        >
-                          {getAvatarText(member.name)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium truncate">{member.name}</span>
-                            <span className={`text-sm font-bold ${bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}`}>
-                              {bal > 0 ? `+$${bal.toFixed(1)}` : bal < 0 ? `-$${Math.abs(bal).toFixed(1)}` : "$0"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Visual bars */}
-                      <div className="space-y-1 pl-12">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-600 w-6">{t.totalAdvanced?.slice(0,1) || '墊'}</span>
-                          <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalPaid / maxAmount) * 100}%` }} />
-                          </div>
-                          <span className="text-[10px] text-gray-500 w-12 text-right">${totalPaid.toFixed(1)}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-600 w-6">{t.totalSpent?.slice(0,1) || '花'}</span>
-                          <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalConsumed / maxAmount) * 100}%` }} />
-                          </div>
-                          <span className="text-[10px] text-gray-500 w-12 text-right">${totalConsumed.toFixed(1)}</span>
-                        </div>
-                      </div>
+                    <div key={pid} className="flex items-center gap-2">
+                      <span className="text-sm text-gray-300 w-20">
+                        {member.name}:
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={customSplits[pid] || ""}
+                        onChange={(e) => {
+                          setCustomSplits((prev) => ({
+                            ...prev,
+                            [pid]: e.target.value,
+                          }));
+                        }}
+                        className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm"
+                      />
                     </div>
                   );
                 })}
+
+                {/* Validation Display */}
+                {(() => {
+                  const total = calculateHKD();
+                  const splitTotal = Object.values(customSplits).reduce(
+                    (sum, val) => sum + (parseFloat(val) || 0),
+                    0,
+                  );
+                  const diff = Math.abs(total - splitTotal);
+
+                  if (total > 0 && splitTotal > 0) {
+                    return (
+                      <div
+                        className={`text-xs mt-2 ${diff <= 1 ? "text-green-400" : "text-red-400"}`}
+                      >
+                        已分配: ${splitTotal.toFixed(1)} / ${total.toFixed(1)}
+                        {diff > 1 && ` (差額: $${diff.toFixed(1)})`}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
           </div>
 
-          {/* Settlement Plan Section */}
-          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <button
-              onClick={() => setSettlementsExpanded(!settlementsExpanded)}
-              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
-            >
-              <h3 className="font-bold text-gray-300">{t.settlements}</h3>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${settlementsExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {settlementsExpanded && (
-              <div className="px-4 pb-4">
-                {settlements.length === 0 ? (
-                  <div className="text-center py-6">
-                    <div className="text-3xl mb-2">🎉</div>
-                    <div className="text-gray-500 text-sm">暫無須結算</div>
-                  </div>
+          {editingExpenseId ? (
+            <div className="space-y-2">
+              <button
+                onClick={handleUpdateExpense}
+                disabled={submitting}
+                className="w-full py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> 更新中...
+                  </>
                 ) : (
-                  <div className="space-y-2">
-                    {settlements.map((s, idx) => {
-                      const fromMember = data.members.find(m => m.name === s.from);
-                      const toMember = data.members.find(m => m.name === s.to);
-                      const fromIdx = fromMember ? data.members.indexOf(fromMember) : 0;
-                      const toIdx = toMember ? data.members.indexOf(toMember) : 0;
-                      return (
-                      <div key={idx} className="flex items-center gap-3 bg-black p-3 rounded-xl">
+                  "💾 更新記錄"
+                )}
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleDeleteCurrentExpense}
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-red-600 rounded-xl font-bold hover:bg-red-500 transition-colors disabled:opacity-50"
+                >
+                  🗑️ 刪除
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleAddExpense}
+              disabled={submitting}
+              className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> 新增中...
+                </>
+              ) : (
+                t.addRecord
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Balances Section */}
+        <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
+          <button
+            onClick={() => setBalancesExpanded(!balancesExpanded)}
+            className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+          >
+            <h3 className="font-bold text-gray-300">{t.balances}</h3>
+            <ChevronDown
+              className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${balancesExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {balancesExpanded && (
+            <div className="px-4 pb-4 space-y-2">
+              {Object.entries(balances).map(([id, bal]) => {
+                const member = data.members.find((m) => m.id === id);
+                if (!member) return null;
+                const memberIdx = data.members.findIndex((m) => m.id === id);
+
+                // Calculate 總墊支 (Total Paid)
+                const totalPaid = data.expenses
+                  .filter((e) => e.payerId === id)
+                  .reduce((sum, e) => sum + e.amountHKD, 0);
+
+                // Calculate 總消費 (Total Consumed)
+                const totalConsumed = data.expenses
+                  .filter((e) =>
+                    e.participants.some((p) => {
+                      const memberId = typeof p === "string" ? p : p.id;
+                      return memberId === id;
+                    }),
+                  )
+                  .reduce((sum, e) => {
+                    // Find this member's participant record
+                    const participant = e.participants.find((p) => {
+                      const memberId = typeof p === "string" ? p : p.id;
+                      return memberId === id;
+                    });
+
+                    if (!participant) return sum;
+
+                    // Check if custom split exists
+                    const customAmount =
+                      typeof participant === "object"
+                        ? participant.customAmount
+                        : undefined;
+                    const share =
+                      customAmount !== undefined
+                        ? customAmount
+                        : e.amountHKD / e.participants.length;
+
+                    return sum + share;
+                  }, 0);
+
+                const maxAmount = Math.max(totalPaid, totalConsumed, 1);
+
+                return (
+                  <div key={id} className="bg-black p-3 rounded-xl">
+                    <div className="flex items-center gap-3 mb-2">
+                      {/* Avatar */}
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ backgroundColor: getAvatarColor(memberIdx) }}
+                      >
+                        {getAvatarText(member.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium truncate">
+                            {member.name}
+                          </span>
+                          <span
+                            className={`text-sm font-bold ${bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}`}
+                          >
+                            {bal > 0
+                              ? `+$${bal.toFixed(1)}`
+                              : bal < 0
+                                ? `-$${Math.abs(bal).toFixed(1)}`
+                                : "$0"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Visual bars */}
+                    <div className="space-y-1 pl-12">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-600 w-6">
+                          {t.totalAdvanced?.slice(0, 1) || "墊"}
+                        </span>
+                        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-green-500/60 rounded-full transition-all duration-500"
+                            style={{
+                              width: `${(totalPaid / maxAmount) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-500 w-12 text-right">
+                          ${totalPaid.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-600 w-6">
+                          {t.totalSpent?.slice(0, 1) || "花"}
+                        </span>
+                        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-red-500/60 rounded-full transition-all duration-500"
+                            style={{
+                              width: `${(totalConsumed / maxAmount) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-500 w-12 text-right">
+                          ${totalConsumed.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Settlement Plan Section */}
+        <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
+          <button
+            onClick={() => setSettlementsExpanded(!settlementsExpanded)}
+            className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+          >
+            <h3 className="font-bold text-gray-300">{t.settlements}</h3>
+            <ChevronDown
+              className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${settlementsExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {settlementsExpanded && (
+            <div className="px-4 pb-4">
+              {settlements.length === 0 ? (
+                <div className="text-center py-6">
+                  <div className="text-3xl mb-2">🎉</div>
+                  <div className="text-gray-500 text-sm">暫無須結算</div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {settlements.map((s, idx) => {
+                    const fromMember = data.members.find(
+                      (m) => m.name === s.from,
+                    );
+                    const toMember = data.members.find((m) => m.name === s.to);
+                    const fromIdx = fromMember
+                      ? data.members.indexOf(fromMember)
+                      : 0;
+                    const toIdx = toMember ? data.members.indexOf(toMember) : 0;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-3 bg-black p-3 rounded-xl"
+                      >
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-red-500/30"
                           style={{ backgroundColor: getAvatarColor(fromIdx) }}
@@ -1773,13 +2054,17 @@ function ExpensesPageContent() {
                           {getAvatarText(s.from)}
                         </div>
                         <div className="flex-1 flex items-center gap-2">
-                          <span className="text-sm font-medium text-red-400 truncate">{s.from}</span>
+                          <span className="text-sm font-medium text-red-400 truncate">
+                            {s.from}
+                          </span>
                           <div className="flex-1 border-t border-dashed border-gray-700 relative">
                             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] text-yellow-500 font-bold bg-black px-1">
                               ${s.amount.toFixed(1)}
                             </span>
                           </div>
-                          <span className="text-sm font-medium text-green-400 truncate">{s.to}</span>
+                          <span className="text-sm font-medium text-green-400 truncate">
+                            {s.to}
+                          </span>
                         </div>
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-green-500/30"
@@ -1788,52 +2073,58 @@ function ExpensesPageContent() {
                           {getAvatarText(s.to)}
                         </div>
                       </div>
-                      );
-                    })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Records List - Grouped by Date */}
+        <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
+          <button
+            onClick={() => setRecordsExpanded(!recordsExpanded)}
+            className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+          >
+            <h3 className="font-bold text-gray-300">{t.recordList}</h3>
+            <ChevronDown
+              className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${recordsExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {recordsExpanded && (
+            <div className="px-4 pb-4">
+              {expensesByDate.length === 0 && (
+                <div className="text-center py-10">
+                  <div className="text-5xl mb-3">📭</div>
+                  <div className="text-gray-500 mb-1">暫無記錄</div>
+                  <div className="text-xs text-gray-700">
+                    喺上面新增第一筆支出吧！
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
 
-          {/* Records List - Grouped by Date */}
-          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <button
-              onClick={() => setRecordsExpanded(!recordsExpanded)}
-              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
-            >
-              <h3 className="font-bold text-gray-300">{t.recordList}</h3>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${recordsExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
+              {/* Date Cards */}
+              <div className="space-y-3">
+                {expensesByDate.map((dateGroup) => {
+                  const isExpanded = expandedDates.includes(dateGroup.date);
 
-            {recordsExpanded && (
-              <div className="px-4 pb-4">
-                {expensesByDate.length === 0 && (
-                  <div className="text-center py-10">
-                    <div className="text-5xl mb-3">📭</div>
-                    <div className="text-gray-500 mb-1">暫無記錄</div>
-                    <div className="text-xs text-gray-700">喺上面新增第一筆支出吧！</div>
-                  </div>
-                )}
-
-                {/* Date Cards */}
-                <div className="space-y-3">
-                  {expensesByDate.map((dateGroup) => {
-                    const isExpanded = expandedDates.includes(dateGroup.date);
-
-                    // Toggle handler for this specific date - Multi-expand mode
-                    const handleToggle = () => {
-                      setExpandedDates(prev =>
+                  // Toggle handler for this specific date - Multi-expand mode
+                  const handleToggle = () => {
+                    setExpandedDates(
+                      (prev) =>
                         prev.includes(dateGroup.date)
-                          ? prev.filter(d => d !== dateGroup.date)  // Remove if already expanded
-                          : [...prev, dateGroup.date]               // Add if not expanded
-                      );
-                    };
+                          ? prev.filter((d) => d !== dateGroup.date) // Remove if already expanded
+                          : [...prev, dateGroup.date], // Add if not expanded
+                    );
+                  };
 
                   return (
-                    <div key={dateGroup.date} className="border border-gray-800 rounded-2xl overflow-hidden">
+                    <div
+                      key={dateGroup.date}
+                      className="border border-gray-800 rounded-2xl overflow-hidden"
+                    >
                       {/* Date Header Card */}
                       <button
                         type="button"
@@ -1845,16 +2136,22 @@ function ExpensesPageContent() {
                             {isExpanded ? "📅" : "📆"}
                           </div>
                           <div className="text-left">
-                            <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
-                            <div className="text-xs text-gray-500">{dateGroup.expenses.length} {t.recordsSuffix}</div>
+                            <div className="font-bold text-white">
+                              {formatDate(dateGroup.date)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {dateGroup.expenses.length} {t.recordsSuffix}
+                            </div>
                           </div>
                         </div>
                         <div className="text-right flex items-center gap-3">
                           <div>
-                            <div className="font-bold text-white text-sm">${dateGroup.total.toFixed(1)}</div>
+                            <div className="font-bold text-white text-sm">
+                              ${dateGroup.total.toFixed(1)}
+                            </div>
                           </div>
                           <ChevronDown
-                            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
                           />
                         </div>
                       </button>
@@ -1864,53 +2161,87 @@ function ExpensesPageContent() {
                         <div className="px-4 pb-4 space-y-2 bg-black/30">
                           {dateGroup.expenses.map((e) => {
                             // Calculate beneficiaries display
-                            const allParticipants = e.participants.length === data.members.length;
+                            const allParticipants =
+                              e.participants.length === data.members.length;
                             const beneficiariesText = allParticipants
                               ? "全員"
-                              : e.participants.map(p => {
-                                  const memberId = typeof p === 'string' ? p : p.id;
-                                  return data.members.find(m => m.id === memberId)?.name;
-                                }).filter(Boolean).join(", ");
+                              : e.participants
+                                  .map((p) => {
+                                    const memberId =
+                                      typeof p === "string" ? p : p.id;
+                                    return data.members.find(
+                                      (m) => m.id === memberId,
+                                    )?.name;
+                                  })
+                                  .filter(Boolean)
+                                  .join(", ");
 
                             return (
-                              <div key={e.id} className="flex items-stretch bg-[#1c1c1e] rounded-xl border border-gray-800 overflow-hidden">
+                              <div
+                                key={e.id}
+                                className="flex items-stretch bg-[#1c1c1e] rounded-xl border border-gray-800 overflow-hidden"
+                              >
                                 {/* Category color indicator */}
-                                <div className="w-1 flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[e.category || 'other'] || '#6b7280' }} />
+                                <div
+                                  className="w-1 flex-shrink-0"
+                                  style={{
+                                    backgroundColor:
+                                      CATEGORY_COLORS[e.category || "other"] ||
+                                      "#6b7280",
+                                  }}
+                                />
                                 <div className="flex justify-between items-center flex-1 p-3 min-w-0">
-                                <div className="flex-1 min-w-0 pr-3">
-                                  <div className="font-bold text-sm">
-                                    {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {t[e.category as keyof typeof t] || e.title}
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-0.5">
-                                    {data.members.find(m => m.id === e.payerId)?.name} {t.paidSuffix} • {beneficiariesText}
-                                    {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
-                                      <span className="ml-1 text-gray-600">({t.origPrefix} {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
+                                  <div className="flex-1 min-w-0 pr-3">
+                                    <div className="font-bold text-sm">
+                                      {CATEGORIES.find(
+                                        (c) => c.id === e.category,
+                                      )?.icon || "📝"}{" "}
+                                      {t[e.category as keyof typeof t] ||
+                                        e.title}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                      {
+                                        data.members.find(
+                                          (m) => m.id === e.payerId,
+                                        )?.name
+                                      }{" "}
+                                      {t.paidSuffix} • {beneficiariesText}
+                                      {e.originalCurrency &&
+                                        e.originalCurrency !== "HKD" &&
+                                        e.originalAmount && (
+                                          <span className="ml-1 text-gray-600">
+                                            ({t.origPrefix} {e.originalCurrency}{" "}
+                                            {e.originalAmount.toFixed(0)})
+                                          </span>
+                                        )}
+                                    </div>
+                                    {e.note && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        <span className="opacity-70">📝</span>{" "}
+                                        {e.note}
+                                      </div>
                                     )}
                                   </div>
-                                  {e.note && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      <span className="opacity-70">📝</span> {e.note}
+                                  <div className="text-right flex items-center gap-1 flex-shrink-0">
+                                    <div className="font-bold text-sm">
+                                      ${e.amountHKD.toFixed(1)}
                                     </div>
-                                  )}
-                                </div>
-                                <div className="text-right flex items-center gap-1 flex-shrink-0">
-                                  <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
-                                  <button
-                                    onClick={() => handleEdit(e)}
-                                    className="text-lg p-1.5 hover:bg-blue-500/20 rounded-lg transition-colors"
-                                    title="編輯"
-                                  >
-                                    ✏️
-                                  </button>
-                                  {/* #7: Direct delete button */}
-                                  <button
-                                    onClick={() => handleDelete(e.id)}
-                                    className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors text-gray-600 hover:text-red-400"
-                                    title="刪除"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
+                                    <button
+                                      onClick={() => handleEdit(e)}
+                                      className="text-lg p-1.5 hover:bg-blue-500/20 rounded-lg transition-colors"
+                                      title="編輯"
+                                    >
+                                      ✏️
+                                    </button>
+                                    {/* #7: Direct delete button */}
+                                    <button
+                                      onClick={() => handleDelete(e.id)}
+                                      className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors text-gray-600 hover:text-red-400"
+                                      title="刪除"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -1922,8 +2253,8 @@ function ExpensesPageContent() {
                 })}
               </div>
             </div>
-            )}
-          </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1931,7 +2262,13 @@ function ExpensesPageContent() {
 
 export default function ExpensesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">載入中...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          載入中...
+        </div>
+      }
+    >
       <ExpensesPageContent />
     </Suspense>
   );
