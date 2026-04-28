@@ -1,6 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+const STORAGE_KEY = 'tripUtility_language';
 
 type Language = 'zh' | 'en';
 
@@ -94,6 +96,21 @@ interface Translations {
   // Status Badges
   status_get: string;
   status_pay: string;
+
+  // Error toasts
+  errInvalidAmount: string;
+  errMissingFields: string;
+  errSplitNegative: string;
+  errSplitMismatch: (diff: string) => string;
+  errSplitEmpty: string;
+  errEnterRate: (currency: string) => string;
+
+  // Empty states
+  emptyRecords: string;
+  emptyRecordsHint: string;
+  emptySettlements: string;
+  emptyFiltered: string;
+  emptyFilteredHint: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -187,6 +204,21 @@ const translations: Record<Language, Translations> = {
     // Status Badges
     status_get: '收',
     status_pay: '付',
+
+    // Error toasts
+    errInvalidAmount: '請輸入有效金額',
+    errMissingFields: '資料不完整',
+    errSplitNegative: '分擔金額唔可以係負數',
+    errSplitMismatch: (diff) => `分擔金額對唔上 (差額: $${diff})`,
+    errSplitEmpty: '請輸入每位嘅分擔金額',
+    errEnterRate: (currency) => `請先輸入 ${currency} 嘅匯率`,
+
+    // Empty states
+    emptyRecords: '仲未有記錄',
+    emptyRecordsHint: '喺上面新增第一筆支出吧！',
+    emptySettlements: '大家都打和，唔使結算',
+    emptyFiltered: '冇呢個類別嘅記錄',
+    emptyFilteredHint: '清除篩選睇返全部',
   },
   en: {
     // UI Labels
@@ -278,6 +310,21 @@ const translations: Record<Language, Translations> = {
     // Status Badges
     status_get: 'Get',
     status_pay: 'Pay',
+
+    // Error toasts
+    errInvalidAmount: 'Please enter a valid amount',
+    errMissingFields: 'Missing required fields',
+    errSplitNegative: 'Split amount cannot be negative',
+    errSplitMismatch: (diff) => `Split mismatch (diff: $${diff})`,
+    errSplitEmpty: 'Please enter every split amount',
+    errEnterRate: (currency) => `Please enter ${currency} exchange rate first`,
+
+    // Empty states
+    emptyRecords: 'No records yet',
+    emptyRecordsHint: 'Add your first expense above!',
+    emptySettlements: 'All even — no settlements needed',
+    emptyFiltered: 'No records in this category',
+    emptyFilteredHint: 'Clear filter to see all',
   },
 };
 
@@ -290,7 +337,28 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('zh');
+  const [language, setLanguageState] = useState<Language>('zh');
+
+  // Load persisted language on mount (client-only, avoids hydration mismatch)
+  // setState in effect is intentional: hydrating preference from external (localStorage)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved === 'zh' || saved === 'en') setLanguageState(saved);
+    } catch {
+      // ignore (private mode / quota)
+    }
+  }, []);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    try {
+      localStorage.setItem(STORAGE_KEY, lang);
+    } catch {
+      // ignore (private mode / quota)
+    }
+  };
 
   const t = translations[language];
 

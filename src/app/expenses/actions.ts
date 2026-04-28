@@ -188,6 +188,19 @@ export async function addExpense(payload: {
   originalAmount?: number;
   customSplits?: Record<string, string>;
 }) {
+  // Boundary validation: reject negative amounts and invalid totals before touching DB
+  if (payload.amountHKD <= 0 || !isFinite(payload.amountHKD)) {
+    throw new Error("Invalid expense amount");
+  }
+  if (payload.customSplits) {
+    for (const v of Object.values(payload.customSplits)) {
+      const n = parseFloat(v);
+      if (!isFinite(n) || n < 0) {
+        throw new Error("Invalid split amount");
+      }
+    }
+  }
+
   const client = await getClient();
   try {
     await client.query("BEGIN");
@@ -286,6 +299,27 @@ export async function deleteExpense(code: string, expenseId: string) {
   }
 }
 
+export async function renameTrip(code: string, newName: string) {
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed.length > 50) {
+    throw new Error("Invalid trip name");
+  }
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      "UPDATE trips SET name = $1 WHERE trip_code = $2",
+      [trimmed, code]
+    );
+    if (result.rowCount === 0) {
+      throw new Error("Trip not found");
+    }
+    revalidatePath('/expenses');
+  } finally {
+    client.release();
+  }
+}
+
 export async function updateExpense(payload: {
   code: string;
   expenseId: string;
@@ -300,6 +334,19 @@ export async function updateExpense(payload: {
   originalAmount?: number;
   customSplits?: Record<string, string>;
 }) {
+  // Boundary validation: reject negative amounts and invalid totals before touching DB
+  if (payload.amountHKD <= 0 || !isFinite(payload.amountHKD)) {
+    throw new Error("Invalid expense amount");
+  }
+  if (payload.customSplits) {
+    for (const v of Object.values(payload.customSplits)) {
+      const n = parseFloat(v);
+      if (!isFinite(n) || n < 0) {
+        throw new Error("Invalid split amount");
+      }
+    }
+  }
+
   const client = await getClient();
   try {
     await client.query("BEGIN");

@@ -2,10 +2,10 @@
 
 import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense } from "./actions";
+import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense, renameTrip } from "./actions";
 import { toast, Toaster } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Trash2 } from 'lucide-react';
+import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Trash2, ArrowRight, Calendar } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { enUS, zhTW } from 'date-fns/locale';
@@ -61,6 +61,14 @@ const getAvatarColor = (index: number) => {
   return AVATAR_COLORS[index % AVATAR_COLORS.length];
 };
 
+const TOAST_STYLE = {
+  success: { background: '#10b981', color: 'white', border: 'none' },
+  error: { background: '#ef4444', color: 'white', border: 'none' },
+} as const;
+const TOAST_DURATION = { success: 2000, error: 3000 } as const;
+
+const MEMBER_NAME_EXAMPLES = ['阿明', 'Alex', '阿May', '小強', '阿珍', '阿東', 'Kelly', '阿傑'];
+
 const getAvatarText = (name: string) => {
   if (!name) return '?';
 
@@ -76,6 +84,22 @@ const getAvatarText = (name: string) => {
     return name.slice(0, 1);
   }
 };
+
+function TripLoader() {
+  return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="mb-4 text-6xl animate-bounce">✈️</div>
+        <div className="text-lg font-bold mb-2">旅程記帳</div>
+        <div className="flex items-center gap-2 text-gray-500">
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ExpensesPageContent() {
   const router = useRouter();
@@ -119,6 +143,14 @@ function ExpensesPageContent() {
   const [balancesExpanded, setBalancesExpanded] = useState(false);
   const [settlementsExpanded, setSettlementsExpanded] = useState(false);
   const [recordsExpanded, setRecordsExpanded] = useState(true);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [editFlash, setEditFlash] = useState(false);
+  const [paidSettlements, setPaidSettlements] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [nameEditing, setNameEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
 
   // Modal States
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
@@ -132,25 +164,8 @@ function ExpensesPageContent() {
 
   // Toast Helper using Sonner
   const showToast = (msg: string, type: "success" | "error" = "success") => {
-    if (type === "success") {
-      toast.success(msg, {
-        duration: 2000,
-        style: {
-          background: '#10b981',
-          color: 'white',
-          border: 'none',
-        },
-      });
-    } else {
-      toast.error(msg, {
-        duration: 3000,
-        style: {
-          background: '#ef4444',
-          color: 'white',
-          border: 'none',
-        },
-      });
-    }
+    const fn = type === "success" ? toast.success : toast.error;
+    fn(msg, { duration: TOAST_DURATION[type], style: TOAST_STYLE[type] });
   };
 
   // Share Link Handler
@@ -209,7 +224,7 @@ function ExpensesPageContent() {
         } else {
           // DB 沒資料 (Code 錯誤或被刪除) -> 清空，顯示建立畫面
           setData(null);
-          showToast("找不到此旅程，請重新建立", "error");
+          showToast("搵唔到呢個旅程，請重新建立", "error");
         }
       })
       .catch(() => {
@@ -246,23 +261,43 @@ function ExpensesPageContent() {
     }
   }, []);
 
-  // #9: Save current trip to recent trips list
+  // #9: Save current trip to recent trips list (also re-syncs on rename via data.name dep)
   useEffect(() => {
     if (data && typeof window !== 'undefined') {
-      const entry = { code: data.code, name: data.name, date: new Date().toISOString().slice(0, 10) };
+      // Local date (en-CA gives YYYY-MM-DD format in local timezone)
+      const entry = { code: data.code, name: data.name, date: new Date().toLocaleDateString('en-CA') };
       setRecentTrips(prev => {
         const filtered = prev.filter(t => t.code !== data.code);
         const updated = [entry, ...filtered].slice(0, 10);
-        localStorage.setItem('tripUtility_recentTrips', JSON.stringify(updated));
+        try {
+          localStorage.setItem('tripUtility_recentTrips', JSON.stringify(updated));
+        } catch {
+          // ignore (private mode / quota)
+        }
         return updated;
       });
+    }
+  }, [data?.code, data?.name]);
+
+  // Load paid-settlements set per trip
+  useEffect(() => {
+    if (!data?.code || typeof window === 'undefined') return;
+    const saved = localStorage.getItem(`tripUtility_paidSettlements_${data.code}`);
+    if (saved) {
+      try { setPaidSettlements(new Set(JSON.parse(saved))); } catch { setPaidSettlements(new Set()); }
+    } else {
+      setPaidSettlements(new Set());
     }
   }, [data?.code]);
 
   // Save exchange rates to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined' && Object.keys(exchangeRates).length > 0) {
-      localStorage.setItem('tripUtility_exchangeRates', JSON.stringify(exchangeRates));
+      try {
+        localStorage.setItem('tripUtility_exchangeRates', JSON.stringify(exchangeRates));
+      } catch {
+        // ignore (private mode / quota)
+      }
     }
   }, [exchangeRates]);
 
@@ -279,6 +314,28 @@ function ExpensesPageContent() {
       });
     }
   }, [participantIds, splitMode]);
+
+  // Esc cancels edit mode
+  useEffect(() => {
+    if (editingExpenseId === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleCancelEdit();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // handleCancelEdit reads latest state via closure recreated each render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingExpenseId]);
+
+  // Auto-open advanced (date+note) disclosure + flash form ring when entering edit mode
+  useEffect(() => {
+    if (editingExpenseId !== null) {
+      setAdvancedOpen(true);
+      setEditFlash(true);
+      const t = setTimeout(() => setEditFlash(false), 800);
+      return () => clearTimeout(t);
+    }
+  }, [editingExpenseId]);
 
   // 2. 刷新數據 (Reload)
   const reloadTrip = async () => {
@@ -298,7 +355,7 @@ function ExpensesPageContent() {
     const members = memberNames.map((n) => n.trim()).filter(Boolean);
 
     if (!trimmedName || members.length < 2) {
-      showToast("請輸入旅程名稱及最少 2 位成員", "error");
+      showToast("請輸入旅程名稱，最少要 2 位成員", "error");
       return;
     }
 
@@ -350,7 +407,7 @@ function ExpensesPageContent() {
   const handleAddExpense = async () => {
     if (!data) return;
     if (!amount || !payerId || participantIds.length === 0) {
-      showToast("資料不完整", "error");
+      showToast(t.errMissingFields, "error");
       return;
     }
 
@@ -359,7 +416,7 @@ function ExpensesPageContent() {
 
     // Fix #3: Validate NaN and non-positive amounts
     if (isNaN(amountValue) || amountValue <= 0) {
-      showToast("請輸入有效金額", "error");
+      showToast(t.errInvalidAmount, "error");
       return;
     }
 
@@ -367,7 +424,7 @@ function ExpensesPageContent() {
     if (finalCurrency !== 'HKD') {
       const rate = parseFloat(exchangeRates[finalCurrency] || '0');
       if (!rate || rate === 0) {
-        showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
+        showToast(t.errEnterRate(finalCurrency), "error");
         return;
       }
     }
@@ -378,19 +435,26 @@ function ExpensesPageContent() {
 
     // Validate custom splits
     if (splitMode === 'custom') {
+      // Reject negative amounts
+      const hasNegative = participantIds.some(pid => parseFloat(customSplits[pid] || '0') < 0);
+      if (hasNegative) {
+        showToast(t.errSplitNegative, "error");
+        return;
+      }
+
       const splitTotal = Object.values(customSplits)
         .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
       const diff = Math.abs(amountHKD - splitTotal);
 
       if (diff > 1) {
-        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(1)})`, "error");
+        showToast(t.errSplitMismatch(diff.toFixed(1)), "error");
         return;
       }
 
       // Check all participants have amounts
       const hasEmptySplits = participantIds.some(pid => !customSplits[pid] || parseFloat(customSplits[pid]) === 0);
       if (hasEmptySplits) {
-        showToast("請輸入所有參與者的分擔金額", "error");
+        showToast(t.errSplitEmpty, "error");
         return;
       }
     }
@@ -452,6 +516,8 @@ function ExpensesPageContent() {
   const handleEdit = (expense: NonNullable<typeof data>['expenses'][0]) => {
     if (!data) return;
     setEditingExpenseId(expense.id);
+    // Clear any active category filter so user sees the edited record after save
+    setCategoryFilter(null);
 
     // 填入基本資訊
     setCategory(expense.category || 'dining');
@@ -527,7 +593,7 @@ function ExpensesPageContent() {
 
     // 驗證必填欄位
     if (!amount || !payerId || participantIds.length === 0) {
-      showToast("資料不完整", "error");
+      showToast(t.errMissingFields, "error");
       return;
     }
 
@@ -536,7 +602,7 @@ function ExpensesPageContent() {
 
     // Fix #3: Validate NaN and non-positive amounts
     if (isNaN(amountValue) || amountValue <= 0) {
-      showToast("請輸入有效金額", "error");
+      showToast(t.errInvalidAmount, "error");
       return;
     }
 
@@ -544,7 +610,7 @@ function ExpensesPageContent() {
     if (finalCurrency !== 'HKD') {
       const rate = parseFloat(exchangeRates[finalCurrency] || '0');
       if (!rate || rate === 0) {
-        showToast(`請先輸入 ${finalCurrency} 的匯率`, "error");
+        showToast(t.errEnterRate(finalCurrency), "error");
         return;
       }
     }
@@ -555,12 +621,18 @@ function ExpensesPageContent() {
 
     // 驗證自訂分擔
     if (splitMode === 'custom') {
+      const hasNegative = participantIds.some(pid => parseFloat(customSplits[pid] || '0') < 0);
+      if (hasNegative) {
+        showToast(t.errSplitNegative, "error");
+        return;
+      }
+
       const splitTotal = Object.values(customSplits)
         .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
       const diff = Math.abs(amountHKD - splitTotal);
 
       if (diff > 1) {
-        showToast(`分擔金額總和不正確 (差額: $${diff.toFixed(1)})`, "error");
+        showToast(t.errSplitMismatch(diff.toFixed(1)), "error");
         return;
       }
 
@@ -568,7 +640,7 @@ function ExpensesPageContent() {
         !customSplits[pid] || parseFloat(customSplits[pid]) === 0
       );
       if (hasEmptySplits) {
-        showToast("請輸入所有參與者的分擔金額", "error");
+        showToast(t.errSplitEmpty, "error");
         return;
       }
     }
@@ -599,40 +671,6 @@ function ExpensesPageContent() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // 9. 刪除當前編輯中的支出 (Delete Current Editing Expense)
-  const handleDeleteCurrentExpense = async () => {
-    if (!data || !editingExpenseId) return;
-
-    // Find the expense to show details in confirmation
-    const expense = data.expenses.find(e => e.id === editingExpenseId);
-    if (!expense) return;
-
-    const confirmMsg = [
-      '確定刪除此記錄?',
-      '',
-      `📝 ${expense.title}`,
-      `💰 HKD $${expense.amountHKD.toFixed(1)}`,
-      `📅 ${expense.date}`,
-      `👤 ${expense.payerName}`,
-    ].join('\n');
-
-    // Fix #9: Use custom modal
-    setConfirmModal({
-      message: confirmMsg,
-      onConfirm: async () => {
-        try {
-          await deleteExpense(data!.code, editingExpenseId!);
-          handleCancelEdit();
-          await reloadTrip();
-          showToast("已刪除", "success");
-        } catch (e) {
-          console.error(e);
-          showToast("刪除失敗", "error");
-        }
-      },
-    });
   };
 
   // 10. 匯出 Excel (Export Excel with 3 Sheets)
@@ -746,7 +784,7 @@ function ExpensesPageContent() {
       // Write file
       XLSX.writeFile(wb, filename);
 
-      showToast("Excel 已匯出", "success");
+      showToast("已匯出 Excel · 請睇下載資料夾", "success");
     } catch (error) {
       console.error('Export error:', error);
       showToast("匯出失敗", "error");
@@ -833,12 +871,16 @@ function ExpensesPageContent() {
     return transactions;
   }, [data, balances]);
 
-  // 日期分組 (Group expenses by date)
+  // 日期分組 (Group expenses by date, with optional category filter for display)
   const expensesByDate = useMemo(() => {
     if (!data) return [];
 
+    const filtered = categoryFilter
+      ? data.expenses.filter(e => e.category === categoryFilter)
+      : data.expenses;
+
     // Group expenses by date
-    const groups = data.expenses.reduce((acc, expense) => {
+    const groups = filtered.reduce((acc, expense) => {
       const date = expense.date;
       if (!acc[date]) {
         acc[date] = [];
@@ -857,7 +899,7 @@ function ExpensesPageContent() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return sortedGroups;
-  }, [data]);
+  }, [data, categoryFilter]);
 
   // Multi-date expansion enabled - users can expand multiple dates simultaneously
   // No auto-expand logic to allow full collapse
@@ -906,19 +948,7 @@ function ExpensesPageContent() {
 
   // 情況 A: 正在跟 Server 拿資料
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-            <div className="mb-4 text-6xl animate-bounce">✈️</div>
-            <div className="text-lg font-bold mb-2">旅程記帳</div>
-            <div className="flex items-center gap-2 text-gray-500">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
-            </div>
-        </div>
-      </div>
-    );
+    return <TripLoader />;
   }
 
   // 情況 B: 有 code 但找不到資料 -> 顯示錯誤 (Force English)
@@ -974,6 +1004,7 @@ function ExpensesPageContent() {
                 <input
                   className="flex-1 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono"
                   placeholder="輸入旅程碼"
+                  aria-label="旅程碼"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   maxLength={8}
@@ -994,17 +1025,42 @@ function ExpensesPageContent() {
                 <div className="text-sm text-gray-400 mb-2">📋 最近旅程</div>
                 <div className="space-y-2">
                   {recentTrips.map(trip => (
-                    <button
+                    <div
                       key={trip.code}
-                      onClick={() => router.push(`/expenses?code=${trip.code}`)}
-                      className="w-full flex items-center justify-between p-3 bg-[#1c1c1e] rounded-xl border border-gray-800 hover:bg-gray-800/80 transition-colors text-left"
+                      className="flex items-center bg-[#1c1c1e] rounded-xl border border-gray-800 hover:bg-gray-800/80 transition-colors overflow-hidden"
                     >
-                      <div>
-                        <div className="font-medium">{trip.name}</div>
-                        <div className="text-xs text-gray-500 font-mono">{trip.code}</div>
-                      </div>
-                      <div className="text-xs text-gray-600">{trip.date}</div>
-                    </button>
+                      <button
+                        onClick={() => router.push(`/expenses?code=${trip.code}`)}
+                        className="flex-1 min-w-0 flex items-center justify-between p-3 text-left"
+                        aria-label={`開啟旅程 ${trip.name}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{trip.name}</div>
+                          <div className="text-xs text-gray-500 font-mono">{trip.code}</div>
+                        </div>
+                        <div className="text-xs text-gray-400 flex-shrink-0 ml-2">{trip.date}</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setRecentTrips(prev => {
+                            const updated = prev.filter(t => t.code !== trip.code);
+                            if (typeof window !== 'undefined') {
+                              try {
+                                localStorage.setItem('tripUtility_recentTrips', JSON.stringify(updated));
+                              } catch {
+                                // ignore (private mode / quota)
+                              }
+                            }
+                            return updated;
+                          });
+                        }}
+                        className="min-w-11 min-h-11 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                        aria-label={`移除 ${trip.name} 出最近旅程`}
+                        title="移除"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1013,13 +1069,14 @@ function ExpensesPageContent() {
             {/* Divider */}
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 border-t border-gray-800" />
-              <span className="text-gray-600 text-xs">或者建立新旅程</span>
+              <span className="text-gray-500 text-xs">或者建立新旅程</span>
               <div className="flex-1 border-t border-gray-800" />
             </div>
 
             <input
             className="w-full p-4 bg-[#1c1c1e] rounded-xl mb-4 border border-gray-800"
             placeholder="旅程名稱 (如: 東京之旅)"
+            aria-label="旅程名稱"
             value={tripName}
             onChange={(e) => setTripName(e.target.value)}
             />
@@ -1044,7 +1101,8 @@ function ExpensesPageContent() {
                 <div key={i} className="flex gap-2">
                     <input
                         className="flex-1 p-4 bg-[#1c1c1e] rounded-xl border border-gray-800"
-                        placeholder={`成員 ${i + 1}`}
+                        placeholder={`成員 ${i + 1}（如：${MEMBER_NAME_EXAMPLES[i % MEMBER_NAME_EXAMPLES.length]}）`}
+                        aria-label={`成員 ${i + 1} 名稱`}
                         value={n}
                         onChange={(e) => {
                         const next = [...memberNames];
@@ -1083,7 +1141,7 @@ function ExpensesPageContent() {
                 href="https://www.instagram.com/midlife_ai_hk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
               >
                 <span>Made by</span>
                 <span className="font-medium">@midlife_ai_hk</span>
@@ -1111,10 +1169,24 @@ function ExpensesPageContent() {
 
       {/* Confirm Modal (#9) */}
       {confirmModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
-          <div className="bg-[#2c2c2e] rounded-2xl w-full max-w-sm overflow-hidden">
-            <div className="p-5 text-center whitespace-pre-line text-sm">
-              {confirmModal.message}
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6"
+          onClick={() => setConfirmModal(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-[#2c2c2e] rounded-2xl w-full max-w-sm overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mb-3">
+                <Trash2 className="w-6 h-6 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="text-base font-semibold">
+                {confirmModal.message}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">呢個動作冇得復原</div>
             </div>
             <div className="flex border-t border-gray-700">
               <button
@@ -1138,67 +1210,91 @@ function ExpensesPageContent() {
       )}
       <div className="max-w-md mx-auto">
           {/* Header */}
-          <div className="mb-6">
-            {/* Action Buttons Grid */}
-            <div className="grid grid-cols-5 gap-2 mb-4">
-              <button
-                onClick={() => setShowFavoritesModal(true)}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="如何收藏此 App"
-              >
-                <Star className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleExportExcel}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="匯出為 Excel 文件"
-              >
-                <FileSpreadsheet className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleShareLink}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-blue-600/30 to-blue-700/30 rounded-2xl text-blue-400 hover:from-blue-600/50 hover:to-blue-700/50 transition-all active:scale-95 border border-blue-500/20"
-                title="分享連結"
-              >
-                <Share2 className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => router.push('/expenses')}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="建立新旅程"
-              >
-                <FolderPlus className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => window.location.reload()}
-                className="aspect-square flex items-center justify-center p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-2xl text-gray-300 hover:from-gray-700 hover:to-gray-800 transition-all active:scale-95"
-                title="重新整理頁面"
-              >
-                <RotateCw className="w-5 h-5" />
-              </button>
-            </div>
+          <div className="mb-5">
             {/* Title with Language Toggle */}
-            <div className="flex items-center justify-between mb-2">
-              <h1 className="text-3xl font-extrabold tracking-tight">{data.name}</h1>
+            <div className="flex items-start gap-2 mb-2">
+              {nameEditing ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={nameDraft}
+                  disabled={nameSaving}
+                  maxLength={50}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onBlur={async () => {
+                    const trimmed = nameDraft.trim();
+                    if (!trimmed || trimmed === data.name) {
+                      setNameEditing(false);
+                      return;
+                    }
+                    try {
+                      setNameSaving(true);
+                      await renameTrip(data.code, trimmed);
+                      await reloadTrip();
+                      showToast("已改旅程名");
+                    } catch {
+                      showToast("改名失敗", "error");
+                    } finally {
+                      setNameSaving(false);
+                      setNameEditing(false);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                    if (e.key === 'Escape') { setNameEditing(false); }
+                  }}
+                  className="text-3xl font-extrabold tracking-tight flex-1 min-w-0 bg-transparent border-b-2 border-blue-500/60 focus:outline-none focus:border-blue-400 px-0 py-0"
+                  aria-label="編輯旅程名稱"
+                />
+              ) : (
+                <h1
+                  className="text-3xl font-extrabold tracking-tight flex-1 min-w-0 break-words cursor-text hover:text-blue-100 transition-colors"
+                  title={`${data.name} · 㩒一下改名`}
+                  onClick={() => { setNameDraft(data.name); setNameEditing(true); }}
+                >
+                  {data.name}
+                </h1>
+              )}
               <button
                 onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 hover:bg-gray-800 transition-colors flex-shrink-0"
+                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 hover:bg-gray-800 transition-colors flex-shrink-0 mt-1"
+                aria-label={language === 'zh' ? '切換到英文' : '切換到中文'}
               >
                 {language === 'zh' ? 'EN' : '中'}
               </button>
             </div>
-            {/* #8: Trip code display + copy */}
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(data.code)
-                  .then(() => showToast("旅程碼已複製"))
-                  .catch(() => {});
-              }}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors mb-6"
-            >
-              <span className="font-mono tracking-widest">{data.code}</span>
-              <Copy className="w-3 h-3" />
-            </button>
+            {/* Trip code chip with inline copy + share */}
+            <div className="inline-flex items-center gap-1 bg-gray-900/60 border border-gray-800 rounded-full pl-3 pr-1 py-1">
+              <span className="font-mono text-xs tracking-widest text-gray-300">{data.code}</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(data.code)
+                    .then(() => {
+                      setCodeCopied(true);
+                      showToast("旅程碼已複製");
+                      setTimeout(() => setCodeCopied(false), 1500);
+                    })
+                    .catch(() => showToast("複製失敗，請手動 select", "error"));
+                }}
+                className={`ml-1 w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
+                  codeCopied
+                    ? 'text-green-400 bg-green-500/15'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+                aria-label="複製旅程碼"
+                title="複製旅程碼"
+              >
+                {codeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={handleShareLink}
+                className="w-7 h-7 flex items-center justify-center rounded-full text-blue-300 hover:text-white hover:bg-blue-600/40 transition-colors"
+                aria-label="分享旅程連結"
+                title="分享連結"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Favorites Modal */}
@@ -1250,16 +1346,21 @@ function ExpensesPageContent() {
               style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
             />
             <div className="relative">
-              <div className="text-blue-300/70 text-sm mb-1">{t.totalExpense}</div>
+              <div className="text-blue-200 text-sm mb-1">{t.totalExpense}</div>
               <div className="text-4xl font-extrabold text-white tracking-tight">
-                  <span className="text-blue-300/60 text-2xl mr-1">HKD</span>
+                  <span className="text-blue-200/90 text-2xl mr-1">HKD</span>
                   {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
               </div>
-              {/* Per-person average + record count */}
-              {data.members.length > 0 && data.expenses.length > 0 && (
-                <div className="flex gap-3 mt-2 text-sm text-blue-200/50">
-                  <span>👤 人均 ≈ ${(data.expenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}</span>
-                  <span>📝 {data.expenses.length} 筆</span>
+              {/* Per-person average + record count, or empty hint */}
+              {data.members.length > 0 && data.expenses.length > 0 ? (
+                <div className="flex items-center gap-2 mt-2 text-sm text-blue-100/90">
+                  <span>人均 ${(data.expenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}</span>
+                  <span className="text-blue-200/40">·</span>
+                  <span>{data.expenses.length} 筆記錄</span>
+                </div>
+              ) : (
+                <div className="mt-2 text-sm text-blue-100/80">
+                  ↓ 喺下面記低第一筆支出
                 </div>
               )}
 
@@ -1283,25 +1384,43 @@ function ExpensesPageContent() {
                   <div className="mt-4">
                     <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
                       {categoryTotals.map(cat => (
-                        <div
+                        <button
                           key={cat.id}
+                          onClick={() => setCategoryFilter(prev => prev === cat.id ? null : cat.id)}
                           style={{
                             width: `${(cat.amount / total) * 100}%`,
-                            backgroundColor: CATEGORY_COLORS[cat.id] || '#6b7280'
+                            backgroundColor: CATEGORY_COLORS[cat.id] || '#6b7280',
+                            opacity: categoryFilter && categoryFilter !== cat.id ? 0.3 : 1,
                           }}
-                          className="transition-all duration-500"
+                          className="transition-all duration-300 hover:brightness-125"
+                          aria-label={`篩選 ${cat.label} 類別`}
+                          title={cat.label}
                         />
                       ))}
                     </div>
-                    {/* Category Legend */}
-                    <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {categoryTotals.map(cat => (
-                        <div key={cat.id} className="flex items-center gap-1 text-xs text-gray-400">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
-                          <span>{cat.icon} {cat.label}</span>
-                          <span className="text-gray-600">{((cat.amount / total) * 100).toFixed(0)}%</span>
-                        </div>
-                      ))}
+                    {/* Category Legend - clickable filter chips */}
+                    <div className="flex flex-wrap gap-x-2 gap-y-1">
+                      {categoryTotals.map(cat => {
+                        const isActive = categoryFilter === cat.id;
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() => setCategoryFilter(prev => prev === cat.id ? null : cat.id)}
+                            aria-pressed={isActive}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
+                              isActive
+                                ? 'bg-white/15 text-white'
+                                : categoryFilter
+                                  ? 'text-gray-500 hover:text-gray-300'
+                                  : 'text-gray-300 hover:bg-white/5'
+                            }`}
+                          >
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
+                            <span>{cat.icon} {cat.label}</span>
+                            <span className={isActive ? 'text-white/80' : 'text-gray-400'}>{((cat.amount / total) * 100).toFixed(0)}%</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -1309,10 +1428,46 @@ function ExpensesPageContent() {
             </div>
           </div>
 
+          {/* Action Buttons Row - Secondary actions after total */}
+          <div className="grid grid-cols-4 gap-2 mb-6">
+            <button
+              onClick={handleExportExcel}
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              aria-label="匯出為 Excel 文件"
+              title="匯出 Excel"
+            >
+              <FileSpreadsheet className="w-[18px] h-[18px]" />
+            </button>
+            <button
+              onClick={() => setShowFavoritesModal(true)}
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              aria-label="如何收藏此 App 到主畫面"
+              title="收藏 App"
+            >
+              <Star className="w-[18px] h-[18px]" />
+            </button>
+            <button
+              onClick={() => router.push('/expenses')}
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              aria-label="建立新旅程"
+              title="新旅程"
+            >
+              <FolderPlus className="w-[18px] h-[18px]" />
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              aria-label="重新載入頁面"
+              title="重新載入"
+            >
+              <RotateCw className="w-[18px] h-[18px]" />
+            </button>
+          </div>
+
           {/* Add Expense Form - Moved to top */}
-          <div ref={formRef} className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all ${
+          <div ref={formRef} className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all duration-500 ${
             editingExpenseId
-              ? 'bg-[#1a1a2e] border-yellow-600/50 ring-1 ring-yellow-600/30'
+              ? `bg-[#1a1a2e] border-yellow-600/50 ${editFlash ? 'ring-4 ring-yellow-500/60' : 'ring-1 ring-yellow-600/30'}`
               : 'bg-[#1c1c1e] border-gray-800'
           }`}>
              {/* #3: Edit mode banner */}
@@ -1330,126 +1485,156 @@ function ExpensesPageContent() {
                     <button
                       key={c.id}
                       onClick={() => setCategory(c.id)}
-                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center ${
-                        isSelected ? 'font-bold scale-105' : 'hover:scale-105'
+                      aria-pressed={isSelected}
+                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center active:scale-95 ${
+                        isSelected
+                          ? 'font-bold scale-105 shadow-md'
+                          : 'hover:scale-105 hover:bg-white/5'
                       }`}
-                      style={{
-                        borderColor: color,
-                        backgroundColor: isSelected ? color : 'transparent',
-                      }}
+                      style={
+                        isSelected
+                          ? { borderColor: color, backgroundColor: color }
+                          : { borderColor: color }
+                      }
                     >
                       <span className="text-lg">{c.icon}</span>
                       <span className="text-[11px] leading-tight mt-1 px-1 text-center">
-                        {t[c.id as keyof typeof t] || c.label}
+                        {(() => { const v = t[c.id as keyof typeof t]; return typeof v === 'string' ? v : c.label; })()}
                       </span>
                     </button>
                   );
                 })}
              </div>
 
-             {/* 2x2 Input Grid */}
+             {/* Currency + Amount (primary row) */}
              <div className="grid grid-cols-2 gap-3">
-               {/* Currency Selector Button */}
-               <select
-                 value={currency}
-                 onChange={(e) => {
-                   const newCurrency = e.target.value;
-                   setCurrency(newCurrency);
-                   if (newCurrency === 'OTHER') {
-                     setCustomCurrency('');
-                   }
-                 }}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
-                 style={{
-                   backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                   backgroundPosition: 'right 0.5rem center',
-                   backgroundRepeat: 'no-repeat',
-                   backgroundSize: '1.5em 1.5em',
-                 }}
-               >
-                 {CURRENCIES.map(c => (
-                   <option key={c.code} value={c.code}>
-                     {c.flag} {c.code} {language === 'zh' && c.code === 'HKD' ? '港幣' : ''}
-                   </option>
-                 ))}
-               </select>
+               <label className="contents">
+                 <span className="sr-only">幣種</span>
+                 <select
+                   value={currency}
+                   onChange={(e) => {
+                     const newCurrency = e.target.value;
+                     setCurrency(newCurrency);
+                     if (newCurrency === 'OTHER') {
+                       setCustomCurrency('');
+                     }
+                   }}
+                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                   style={{
+                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                     backgroundPosition: 'right 0.5rem center',
+                     backgroundRepeat: 'no-repeat',
+                     backgroundSize: '1.5em 1.5em',
+                   }}
+                 >
+                   {CURRENCIES.map(c => (
+                     <option key={c.code} value={c.code}>
+                       {c.flag} {c.code} {language === 'zh' && c.code === 'HKD' ? '港幣' : ''}
+                     </option>
+                   ))}
+                 </select>
+               </label>
 
-               {/* Amount Input */}
-               <input
-                 type="number"
-                 step="0.01"
-                 placeholder={`${t.amountPh} (${getFinalCurrency()})`}
-                 value={amount}
-                 onChange={(e) => setAmount(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
-               />
-
-               {/* Date Picker */}
-               <input
-                 type="date"
-                 value={date}
-                 onChange={(e) => setDate(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
-               />
-
-               {/* Notes Input */}
-               <input
-                 type="text"
-                 placeholder={t.notePh}
-                 value={note}
-                 onChange={(e) => setNote(e.target.value)}
-                 className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
-               />
+               <label className="contents">
+                 <span className="sr-only">金額</span>
+                 <input
+                   type="number"
+                   step="0.01"
+                   placeholder={`${t.amountPh} (${getFinalCurrency()})`}
+                   value={amount}
+                   onChange={(e) => setAmount(e.target.value)}
+                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                 />
+               </label>
              </div>
+
+             {/* Date + Note (collapsible advanced) */}
+             <details
+               open={advancedOpen}
+               onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+               className="bg-black rounded-xl border border-gray-800 group overflow-hidden"
+             >
+               <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 h-[44px] flex items-center justify-between hover:bg-gray-900/50 transition-colors">
+                 <span className="text-sm text-gray-300 truncate flex-1 min-w-0">
+                   📅 {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)}
+                   {note && <span className="text-gray-500"> · 📝 {note}</span>}
+                 </span>
+                 <ChevronDown className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform flex-shrink-0 ml-2" aria-hidden="true" />
+               </summary>
+               <div className="px-3 pb-3 pt-1 grid grid-cols-2 gap-3">
+                 <label className="contents">
+                   <span className="sr-only">日期</span>
+                   <input
+                     type="date"
+                     value={date}
+                     onChange={(e) => setDate(e.target.value)}
+                     className="w-full px-3 h-[44px] bg-[#1c1c1e] rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none appearance-none text-[14px] font-medium leading-normal"
+                   />
+                 </label>
+                 <label className="contents">
+                   <span className="sr-only">備註</span>
+                   <input
+                     type="text"
+                     placeholder={t.notePh}
+                     value={note}
+                     onChange={(e) => setNote(e.target.value)}
+                     className="w-full px-3 h-[44px] bg-[#1c1c1e] rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none text-[14px] font-medium leading-normal placeholder:text-gray-500"
+                   />
+                 </label>
+               </div>
+             </details>
 
              {/* Custom Currency Input */}
              {currency === 'OTHER' && (
                <input
                  type="text"
                  placeholder="輸入幣種代碼 (如: SGD, MYR)"
+                 aria-label="自訂幣種代碼"
                  value={customCurrency}
                  onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
-                 className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-600"
+                 className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-500"
                  maxLength={5}
                />
              )}
 
-             {/* Exchange Rate Input (shown for non-HKD currencies) */}
+             {/* Exchange Rate + HKD preview (combined compact row) */}
              {((currency !== 'HKD' && currency !== 'OTHER') ||
                (currency === 'OTHER' && customCurrency.trim())) && (
-               <div className="flex items-center gap-2 bg-black px-3 py-2 rounded-xl border border-gray-800">
-                 <span className="text-xs text-gray-400 whitespace-nowrap">
-                   匯率 ({getFinalCurrency()} → HKD):
-                 </span>
-                 <input
-                   type="number"
-                   step="0.000001"
-                   placeholder="0.000000"
-                   value={exchangeRates[getFinalCurrency()] || ''}
-                   onChange={(e) => {
-                     const code = getFinalCurrency();
-                     setExchangeRates(prev => ({
-                       ...prev,
-                       [code]: e.target.value,
-                     }));
-                   }}
-                   className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
-                 />
-                 {/* #10: Auto-fetch button */}
-                 <button
-                   onClick={() => fetchExchangeRate(getFinalCurrency())}
-                   disabled={fetchingRate}
-                   className="px-2 py-2 bg-blue-600/20 text-blue-400 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50 whitespace-nowrap"
-                 >
-                   {fetchingRate ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚡ 自動'}
-                 </button>
-               </div>
-             )}
-
-             {/* HKD Conversion Display */}
-             {getFinalCurrency() !== 'HKD' && amount && calculateHKD() > 0 && (
-               <div className="text-xs text-gray-400 text-center">
-                 ≈ HKD {calculateHKD().toFixed(2)}
+               <div className="bg-black rounded-xl border border-gray-800 p-2 space-y-1">
+                 <div className="flex items-center gap-2">
+                   <span className="text-[11px] font-mono font-bold text-gray-300 bg-gray-800/80 px-2 py-1 rounded-md whitespace-nowrap">
+                     {getFinalCurrency()}→HKD
+                   </span>
+                   <input
+                     type="number"
+                     step="0.000001"
+                     placeholder="0.000000"
+                     value={exchangeRates[getFinalCurrency()] || ''}
+                     onChange={(e) => {
+                       const code = getFinalCurrency();
+                       setExchangeRates(prev => ({
+                         ...prev,
+                         [code]: e.target.value,
+                       }));
+                     }}
+                     className="flex-1 min-w-0 px-2 py-1.5 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
+                     aria-label={`${getFinalCurrency()} 兌 HKD 匯率`}
+                   />
+                   <button
+                     onClick={() => fetchExchangeRate(getFinalCurrency())}
+                     disabled={fetchingRate}
+                     className="min-w-11 h-9 flex items-center justify-center bg-blue-600/20 text-blue-300 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50"
+                     aria-label="自動取得匯率"
+                     title="自動取得匯率"
+                   >
+                     {fetchingRate ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+                   </button>
+                 </div>
+                 {amount && calculateHKD() > 0 && (
+                   <div className="text-xs text-blue-300 text-right pr-1">
+                     ≈ HKD ${calculateHKD().toFixed(2)}
+                   </div>
+                 )}
                </div>
              )}
 
@@ -1457,12 +1642,12 @@ function ExpensesPageContent() {
                 {/* 誰付錢 - Avatar Style */}
                 <div className="space-y-2">
                   <span className="text-xs text-gray-500">{t.whoPaid}:</span>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide p-4">
+                  <div className="flex flex-wrap gap-3 py-3 px-1">
                     {data.members.map((m, idx) => (
                       <button
                         key={m.id}
                         onClick={() => setPayerId(m.id)}
-                        className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                        className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
                           payerId === m.id
                             ? 'border-white scale-110 shadow-lg shadow-blue-500/50'
                             : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
@@ -1470,6 +1655,8 @@ function ExpensesPageContent() {
                         style={{
                           backgroundColor: getAvatarColor(idx),
                         }}
+                        aria-label={`付款人 ${m.name}`}
+                        aria-pressed={payerId === m.id}
                         title={m.name}
                       >
                         {getAvatarText(m.name)}
@@ -1502,7 +1689,7 @@ function ExpensesPageContent() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide p-4">
+                  <div className="flex flex-wrap gap-3 py-3 px-1">
                     {data.members.map((m, idx) => {
                       const isSelected = participantIds.includes(m.id);
                       return (
@@ -1513,7 +1700,7 @@ function ExpensesPageContent() {
                               ? prev.filter(p => p !== m.id)
                               : [...prev, m.id]
                           )}
-                          className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                          className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
                             isSelected
                               ? 'border-white ring-2 ring-offset-2 ring-offset-black ring-blue-500 scale-110 shadow-lg shadow-blue-500/50'
                               : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
@@ -1521,6 +1708,8 @@ function ExpensesPageContent() {
                           style={{
                             backgroundColor: getAvatarColor(idx),
                           }}
+                          aria-label={`分擔者 ${m.name}`}
+                          aria-pressed={isSelected}
                           title={m.name}
                         >
                           {getAvatarText(m.name)}
@@ -1535,40 +1724,44 @@ function ExpensesPageContent() {
                   </div>
                 </div>
 
-                {/* Split Mode Toggle */}
+                {/* Split Mode Toggle (segmented control) */}
                 {participantIds.length > 0 && (
                   <div className="flex items-center gap-2 pt-2">
                     <span className="text-xs text-gray-500 whitespace-nowrap">{t.splitMode}:</span>
-                    <button
-                      onClick={() => {
-                        setSplitMode('equal');
-                        setCustomSplits({});
-                      }}
-                      className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
-                        splitMode === 'equal'
-                          ? 'bg-blue-600 border-blue-600 text-white font-bold'
-                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                      }`}
-                    >
-                      {t.equalSplit}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSplitMode('custom');
-                        const newSplits: Record<string, string> = {};
-                        participantIds.forEach(id => {
-                          newSplits[id] = '';
-                        });
-                        setCustomSplits(newSplits);
-                      }}
-                      className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition-all ${
-                        splitMode === 'custom'
-                          ? 'bg-blue-600 border-blue-600 text-white font-bold'
-                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                      }`}
-                    >
-                      {t.customSplit}
-                    </button>
+                    <div className="flex bg-gray-900 border border-gray-800 rounded-full p-0.5" role="group" aria-label={t.splitMode}>
+                      <button
+                        onClick={() => {
+                          setSplitMode('equal');
+                          setCustomSplits({});
+                        }}
+                        aria-pressed={splitMode === 'equal'}
+                        className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
+                          splitMode === 'equal'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        {t.equalSplit}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSplitMode('custom');
+                          const newSplits: Record<string, string> = {};
+                          participantIds.forEach(id => {
+                            newSplits[id] = '';
+                          });
+                          setCustomSplits(newSplits);
+                        }}
+                        aria-pressed={splitMode === 'custom'}
+                        className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
+                          splitMode === 'custom'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        {t.customSplit}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1587,6 +1780,7 @@ function ExpensesPageContent() {
                             type="number"
                             step="0.01"
                             placeholder="0.00"
+                            aria-label={`${member.name} 嘅分擔金額`}
                             value={customSplits[pid] || ''}
                             onChange={(e) => {
                               setCustomSplits(prev => ({
@@ -1621,31 +1815,36 @@ function ExpensesPageContent() {
                 )}
              </div>
 
+             {(() => {
+               const missing: string[] = [];
+               if (!amount || parseFloat(amount) <= 0) missing.push('金額');
+               if (!payerId) missing.push('付款人');
+               if (participantIds.length === 0) missing.push('分擔者');
+               const finalCur = getFinalCurrency();
+               if (finalCur !== 'HKD' && !parseFloat(exchangeRates[finalCur] || '0')) missing.push('匯率');
+               return missing.length > 0 ? (
+                 <div className="text-xs text-gray-400 text-center">
+                   仲未填：<span className="text-yellow-300">{missing.join('、')}</span>
+                 </div>
+               ) : null;
+             })()}
+
              {editingExpenseId ? (
                <div className="space-y-2">
                  <button
                    onClick={handleUpdateExpense}
                    disabled={submitting}
-                   className="w-full py-3 bg-green-600 rounded-xl font-bold hover:bg-green-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                   className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                  >
-                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 更新中...</> : '💾 更新記錄'}
+                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 更新中...</> : '更新記錄'}
                  </button>
-                 <div className="flex gap-2">
-                   <button
-                     onClick={handleCancelEdit}
-                     disabled={submitting}
-                     className="flex-1 py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
-                   >
-                     取消
-                   </button>
-                   <button
-                     onClick={handleDeleteCurrentExpense}
-                     disabled={submitting}
-                     className="flex-1 py-3 bg-red-600 rounded-xl font-bold hover:bg-red-500 transition-colors disabled:opacity-50"
-                   >
-                     🗑️ 刪除
-                   </button>
-                 </div>
+                 <button
+                   onClick={handleCancelEdit}
+                   disabled={submitting}
+                   className="w-full py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
+                 >
+                   取消編輯
+                 </button>
                </div>
              ) : (
                <button
@@ -1658,7 +1857,8 @@ function ExpensesPageContent() {
              )}
           </div>
 
-          {/* Balances Section */}
+          {/* Balances Section - hide when no expenses */}
+          {data.expenses.length > 0 && (
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
             <button
               onClick={() => setBalancesExpanded(!balancesExpanded)}
@@ -1730,14 +1930,14 @@ function ExpensesPageContent() {
                       {/* Visual bars */}
                       <div className="space-y-1 pl-12">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-600 w-6">{t.totalAdvanced?.slice(0,1) || '墊'}</span>
+                          <span className="text-[10px] text-gray-400 w-6">{t.totalAdvanced?.slice(0,1) || '墊'}</span>
                           <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                             <div className="h-full bg-green-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalPaid / maxAmount) * 100}%` }} />
                           </div>
                           <span className="text-[10px] text-gray-500 w-12 text-right">${totalPaid.toFixed(1)}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-600 w-6">{t.totalSpent?.slice(0,1) || '花'}</span>
+                          <span className="text-[10px] text-gray-400 w-6">{t.totalSpent?.slice(0,1) || '花'}</span>
                           <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                             <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalConsumed / maxAmount) * 100}%` }} />
                           </div>
@@ -1750,8 +1950,10 @@ function ExpensesPageContent() {
               </div>
             )}
           </div>
+          )}
 
-          {/* Settlement Plan Section */}
+          {/* Settlement Plan Section - hide when no expenses */}
+          {data.expenses.length > 0 && (
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
             <button
               onClick={() => setSettlementsExpanded(!settlementsExpanded)}
@@ -1768,7 +1970,7 @@ function ExpensesPageContent() {
                 {settlements.length === 0 ? (
                   <div className="text-center py-6">
                     <div className="text-3xl mb-2">🎉</div>
-                    <div className="text-gray-500 text-sm">暫無須結算</div>
+                    <div className="text-gray-400 text-sm">{t.emptySettlements}</div>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1777,28 +1979,65 @@ function ExpensesPageContent() {
                       const toMember = data.members.find(m => m.name === s.to);
                       const fromIdx = fromMember ? data.members.indexOf(fromMember) : 0;
                       const toIdx = toMember ? data.members.indexOf(toMember) : 0;
+                      const settlementKey = `${s.from}→${s.to}@${s.amount.toFixed(1)}`;
+                      const isPaid = paidSettlements.has(settlementKey);
+                      const togglePaid = () => {
+                        setPaidSettlements(prev => {
+                          const next = new Set(prev);
+                          if (next.has(settlementKey)) next.delete(settlementKey);
+                          else next.add(settlementKey);
+                          if (typeof window !== 'undefined') {
+                            try {
+                              localStorage.setItem(
+                                `tripUtility_paidSettlements_${data.code}`,
+                                JSON.stringify(Array.from(next))
+                              );
+                            } catch {
+                              // ignore (private mode / quota)
+                            }
+                          }
+                          return next;
+                        });
+                      };
                       return (
-                      <div key={idx} className="flex items-center gap-3 bg-black p-3 rounded-xl">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-red-500/30"
-                          style={{ backgroundColor: getAvatarColor(fromIdx) }}
-                        >
-                          {getAvatarText(s.from)}
-                        </div>
-                        <div className="flex-1 flex items-center gap-2">
-                          <span className="text-sm font-medium text-red-400 truncate">{s.from}</span>
-                          <div className="flex-1 border-t border-dashed border-gray-700 relative">
-                            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] text-yellow-500 font-bold bg-black px-1">
-                              ${s.amount.toFixed(1)}
-                            </span>
+                      <div
+                        key={idx}
+                        className={`bg-black p-3 rounded-xl space-y-2 transition-opacity ${isPaid ? 'opacity-50' : ''}`}
+                        aria-label={`${s.from} 還 $${s.amount.toFixed(1)} 俾 ${s.to}${isPaid ? '（已付清）' : ''}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-red-500/40"
+                            style={{ backgroundColor: getAvatarColor(fromIdx) }}
+                          >
+                            {getAvatarText(s.from)}
                           </div>
-                          <span className="text-sm font-medium text-green-400 truncate">{s.to}</span>
+                          <span className={`text-sm font-medium text-red-300 truncate flex-1 min-w-0 ${isPaid ? 'line-through' : ''}`}>{s.from}</span>
+                          <ArrowRight className="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
+                          <span className={`text-sm font-medium text-green-300 truncate flex-1 min-w-0 text-right ${isPaid ? 'line-through' : ''}`}>{s.to}</span>
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-green-500/40"
+                            style={{ backgroundColor: getAvatarColor(toIdx) }}
+                          >
+                            {getAvatarText(s.to)}
+                          </div>
                         </div>
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-green-500/30"
-                          style={{ backgroundColor: getAvatarColor(toIdx) }}
-                        >
-                          {getAvatarText(s.to)}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className={`flex-1 text-center text-base font-bold tracking-tight ${isPaid ? 'text-gray-500 line-through' : 'text-yellow-300'}`}>
+                            HKD ${s.amount.toFixed(1)}
+                          </div>
+                          <button
+                            onClick={togglePaid}
+                            aria-pressed={isPaid}
+                            className={`min-w-11 h-9 px-3 inline-flex items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors ${
+                              isPaid
+                                ? 'bg-green-500/20 text-green-300'
+                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                            }`}
+                          >
+                            <Check className={`w-3.5 h-3.5 ${isPaid ? '' : 'opacity-40'}`} />
+                            {isPaid ? '已付清' : '標記'}
+                          </button>
                         </div>
                       </div>
                       );
@@ -1808,6 +2047,7 @@ function ExpensesPageContent() {
               </div>
             )}
           </div>
+          )}
 
           {/* Records List - Grouped by Date */}
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
@@ -1823,11 +2063,28 @@ function ExpensesPageContent() {
 
             {recordsExpanded && (
               <div className="px-4 pb-4">
+                {/* Active category filter indicator */}
+                {categoryFilter && (() => {
+                  const cat = CATEGORIES.find(c => c.id === categoryFilter);
+                  return cat ? (
+                    <div className="mb-3 inline-flex items-center gap-2 bg-white/10 rounded-full pl-3 pr-1 py-1 text-xs">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
+                      <span>只睇「{cat.icon} {cat.label}」</span>
+                      <button
+                        onClick={() => setCategoryFilter(null)}
+                        className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-400 hover:text-white"
+                        aria-label="清除類別篩選"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
                 {expensesByDate.length === 0 && (
                   <div className="text-center py-10">
                     <div className="text-5xl mb-3">📭</div>
-                    <div className="text-gray-500 mb-1">暫無記錄</div>
-                    <div className="text-xs text-gray-700">喺上面新增第一筆支出吧！</div>
+                    <div className="text-gray-400 mb-1">{categoryFilter ? t.emptyFiltered : t.emptyRecords}</div>
+                    <div className="text-xs text-gray-500">{categoryFilter ? t.emptyFilteredHint : t.emptyRecordsHint}</div>
                   </div>
                 )}
 
@@ -1854,17 +2111,24 @@ function ExpensesPageContent() {
                         className="w-full p-4 bg-black hover:bg-gray-900/80 transition-colors flex justify-between items-center"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-lg">
-                            {isExpanded ? "📅" : "📆"}
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-blue-300">
+                            <Calendar className="w-5 h-5" aria-hidden="true" />
                           </div>
                           <div className="text-left">
                             <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
-                            <div className="text-xs text-gray-500">{dateGroup.expenses.length} {t.recordsSuffix}</div>
+                            <div className="mt-0.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-800 text-[10px] text-gray-300 font-medium">
+                                {dateGroup.expenses.length} {t.recordsSuffix}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <div className="text-right flex items-center gap-3">
                           <div>
-                            <div className="font-bold text-white text-sm">${dateGroup.total.toFixed(1)}</div>
+                            <div className="font-bold text-white text-sm">
+                              <span className="text-gray-500 text-[10px] font-normal mr-1">HKD</span>
+                              ${dateGroup.total.toFixed(1)}
+                            </div>
                           </div>
                           <ChevronDown
                             className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
@@ -1892,12 +2156,12 @@ function ExpensesPageContent() {
                                 <div className="flex justify-between items-center flex-1 p-3 min-w-0">
                                 <div className="flex-1 min-w-0 pr-3">
                                   <div className="font-bold text-sm">
-                                    {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {t[e.category as keyof typeof t] || e.title}
+                                    {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {(() => { const v = t[e.category as keyof typeof t]; return typeof v === 'string' ? v : e.title; })()}
                                   </div>
                                   <div className="text-xs text-gray-500 mt-0.5">
                                     {data.members.find(m => m.id === e.payerId)?.name} {t.paidSuffix} • {beneficiariesText}
                                     {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
-                                      <span className="ml-1 text-gray-600">({t.origPrefix} {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
+                                      <span className="ml-1 text-gray-400">({t.origPrefix} {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
                                     )}
                                   </div>
                                   {e.note && (
@@ -1906,19 +2170,20 @@ function ExpensesPageContent() {
                                     </div>
                                   )}
                                 </div>
-                                <div className="text-right flex items-center gap-1 flex-shrink-0">
-                                  <div className="font-bold text-sm">${e.amountHKD.toFixed(1)}</div>
+                                <div className="text-right flex items-center gap-0.5 flex-shrink-0">
+                                  <div className="font-bold text-sm mr-1">${e.amountHKD.toFixed(1)}</div>
                                   <button
                                     onClick={() => handleEdit(e)}
-                                    className="text-lg p-1.5 hover:bg-blue-500/20 rounded-lg transition-colors"
+                                    className="min-w-11 min-h-11 flex items-center justify-center text-lg hover:bg-blue-500/20 rounded-lg transition-colors"
+                                    aria-label="編輯記錄"
                                     title="編輯"
                                   >
                                     ✏️
                                   </button>
-                                  {/* #7: Direct delete button */}
                                   <button
                                     onClick={() => handleDelete(e.id)}
-                                    className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors text-gray-600 hover:text-red-400"
+                                    className="min-w-11 min-h-11 flex items-center justify-center hover:bg-red-500/20 rounded-lg transition-colors text-gray-400 hover:text-red-400"
+                                    aria-label="刪除記錄"
                                     title="刪除"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -1944,7 +2209,7 @@ function ExpensesPageContent() {
               href="https://www.instagram.com/midlife_ai_hk"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-400 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
             >
               <span>Made by</span>
               <span className="font-medium">@midlife_ai_hk</span>
@@ -1957,7 +2222,7 @@ function ExpensesPageContent() {
 
 export default function ExpensesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">載入中...</div>}>
+    <Suspense fallback={<TripLoader />}>
       <ExpensesPageContent />
     </Suspense>
   );
