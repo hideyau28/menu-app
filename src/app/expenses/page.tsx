@@ -369,14 +369,25 @@ function ExpensesPageContent() {
       return;
     }
 
+    setSubmitting(true);
+    setLoading(true);
+    const safetyTimer = setTimeout(() => {
+      console.warn("[createTrip] safety timeout fired (30s) — unlocking button");
+      setSubmitting(false);
+      setLoading(false);
+      showToast("提交逾時，請檢查網絡", "error");
+    }, 30000);
+
     try {
-      setSubmitting(true);
-      setLoading(true);
       const res = await createTrip(trimmedName, members);
+      clearTimeout(safetyTimer);
       // 成功後直接跳轉，不需要存 localStorage，因為跳轉後的 URL 包含 code，會觸發上面的 useEffect
       router.replace(`/expenses?code=${res.code}`);
     } catch (e) {
-      showToast("建立失敗，請檢查網絡", "error");
+      clearTimeout(safetyTimer);
+      console.error("[createTrip] failed:", e);
+      const msg = e instanceof Error ? e.message : "建立失敗，請檢查網絡";
+      showToast(msg, "error");
       setLoading(false);
       setSubmitting(false);
     }
@@ -459,8 +470,15 @@ function ExpensesPageContent() {
       }
     }
 
+    setSubmitting(true);
+    // Safety: force-unlock button if action hangs > 30s
+    const safetyTimer = setTimeout(() => {
+      console.warn("[addExpense] safety timeout fired (30s) — unlocking button");
+      setSubmitting(false);
+      showToast("提交逾時，請重試", "error");
+    }, 30000);
+
     try {
-      setSubmitting(true);
       await addExpense({
         code: data.code,
         title: CATEGORIES.find((c) => c.id === category)?.label ?? "其他",
@@ -489,8 +507,11 @@ function ExpensesPageContent() {
       await reloadTrip();
       showToast("已新增");
     } catch (e) {
-      showToast("新增失敗", "error");
+      console.error("[addExpense] failed:", e);
+      const msg = e instanceof Error ? e.message : "新增失敗";
+      showToast(msg, "error");
     } finally {
+      clearTimeout(safetyTimer);
       setSubmitting(false);
     }
   };
@@ -506,7 +527,9 @@ function ExpensesPageContent() {
           await reloadTrip();
           showToast("已刪除");
         } catch (e) {
-          showToast("刪除失敗", "error");
+          console.error("[deleteExpense] failed:", e);
+          const msg = e instanceof Error ? e.message : "刪除失敗";
+          showToast(msg, "error");
         }
       },
     });
@@ -645,8 +668,14 @@ function ExpensesPageContent() {
       }
     }
 
+    setSubmitting(true);
+    const safetyTimer = setTimeout(() => {
+      console.warn("[updateExpense] safety timeout fired (30s) — unlocking button");
+      setSubmitting(false);
+      showToast("提交逾時，請重試", "error");
+    }, 30000);
+
     try {
-      setSubmitting(true);
       await updateExpense({
         code: data.code,
         expenseId: editingExpenseId,
@@ -666,9 +695,11 @@ function ExpensesPageContent() {
       await reloadTrip();
       showToast("已更新記錄");
     } catch (e) {
-      console.error(e);
-      showToast("更新失敗", "error");
+      console.error("[updateExpense] failed:", e);
+      const msg = e instanceof Error ? e.message : "更新失敗";
+      showToast(msg, "error");
     } finally {
+      clearTimeout(safetyTimer);
       setSubmitting(false);
     }
   };
