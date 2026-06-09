@@ -289,6 +289,23 @@ function ExpensesPageContent() {
     }
   };
 
+  // 多人即時更新（infra-free）：當 tab 重新可見時靜默 refetch，
+  // 令同一旅程嘅其他人加咗支出後，切返個 app 就見到最新數（毋須 websocket）。
+  useEffect(() => {
+    if (!code) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") reloadTrip();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+    // reloadTrip 由 code 決定；只需喺 code 變化時重新訂閱
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
   // 3. 建立旅程 (Create Trip)
   // Fix #10: Added input sanitization
   const handleCreateTrip = async () => {
