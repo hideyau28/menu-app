@@ -4,124 +4,29 @@ import { Suspense, useEffect, useMemo, useState, useRef, useOptimistic, useTrans
 import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense, renameTrip } from "./actions";
 import { toast, Toaster } from 'sonner';
-import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Trash2, ArrowRight, Calendar } from 'lucide-react';
+import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2 } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { enUS, zhTW } from 'date-fns/locale';
 import { logger } from '@/lib/logger';
-
-// 定義資料類型
-type TripData = Awaited<ReturnType<typeof getTripByCode>>;
-type ExpenseItem = NonNullable<TripData>["expenses"][number];
-
-// Optimistic UI：即時反映新增/改/刪，唔等 server round-trip。
-// 注意：呢度只係將「已經算好嘅值」重新排列顯示，唔做任何金額計算。
-type OptimisticAction =
-  | { type: "add"; expense: ExpenseItem }
-  | { type: "update"; expense: ExpenseItem }
-  | { type: "delete"; id: string };
-
-function applyExpenseOptimistic(
-  state: ExpenseItem[],
-  action: OptimisticAction,
-): ExpenseItem[] {
-  switch (action.type) {
-    case "add":
-      return [action.expense, ...state];
-    case "update":
-      return state.map((e) => (e.id === action.expense.id ? action.expense : e));
-    case "delete":
-      return state.filter((e) => e.id !== action.id);
-  }
-}
-
-const CATEGORIES = [
-  { id: "dining", label: "餐飲", icon: "🍽️" },
-  { id: "transport", label: "交通", icon: "🚗" },
-  { id: "hotel", label: "住宿", icon: "🏨" },
-  { id: "shopping", label: "購物", icon: "🛍️" },
-  { id: "activity", label: "活動", icon: "🎡" },
-  { id: "other", label: "其他", icon: "📝" },
-];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  dining: '#3b82f6',    // blue
-  transport: '#f97316', // orange
-  hotel: '#a855f7',     // purple
-  shopping: '#ec4899',  // pink
-  activity: '#10b981',  // green
-  other: '#6b7280',     // gray
-};
-
-const CURRENCIES = [
-  { code: 'HKD', label: 'HKD 港幣', flag: '🇭🇰' },
-  { code: 'JPY', label: 'JPY', flag: '🇯🇵' },
-  { code: 'USD', label: 'USD', flag: '🇺🇸' },
-  { code: 'CNY', label: 'CNY', flag: '🇨🇳' },
-  { code: 'EUR', label: 'EUR', flag: '🇪🇺' },
-  { code: 'GBP', label: 'GBP', flag: '🇬🇧' },
-  { code: 'CAD', label: 'CAD', flag: '🇨🇦' },
-  { code: 'KRW', label: 'KRW', flag: '🇰🇷' },
-  { code: 'TWD', label: 'TWD', flag: '🇹🇼' },
-  { code: 'THB', label: 'THB', flag: '🇹🇭' },
-  { code: 'AUD', label: 'AUD', flag: '🇦🇺' },
-  { code: 'OTHER', label: '其他幣種...', flag: '🌍' },
-] as const;
-
-const AVATAR_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ec4899', // pink
-  '#8b5cf6', // purple
-  '#14b8a6', // teal
-  '#f97316', // orange
-  '#06b6d4', // cyan
-];
-
-const getAvatarColor = (index: number) => {
-  return AVATAR_COLORS[index % AVATAR_COLORS.length];
-};
-
-const TOAST_STYLE = {
-  success: { background: '#10b981', color: 'white', border: 'none' },
-  error: { background: '#ef4444', color: 'white', border: 'none' },
-} as const;
-const TOAST_DURATION = { success: 2000, error: 3000 } as const;
-
-const MEMBER_NAME_EXAMPLES = ['阿明', 'Alex', '阿May', '小強', '阿珍', '阿東', 'Kelly', '阿傑'];
-
-const getAvatarText = (name: string) => {
-  if (!name) return '?';
-
-  // Check if the first character is ASCII (English/Latin)
-  const firstChar = name.charAt(0);
-  const isAscii = firstChar.charCodeAt(0) < 128;
-
-  if (isAscii) {
-    // For ASCII/English names, take the first 2 letters and uppercase
-    return name.slice(0, 2).toUpperCase();
-  } else {
-    // For Chinese/other names, take the first character
-    return name.slice(0, 1);
-  }
-};
-
-function TripLoader() {
-  return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center">
-      <div className="text-center">
-        <div className="mb-4 text-6xl animate-bounce">✈️</div>
-        <div className="text-lg font-bold mb-2">旅程記帳</div>
-        <div className="flex items-center gap-2 text-gray-500">
-          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
-          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
-        </div>
-      </div>
-    </div>
-  );
-}
+import { applyExpenseOptimistic, type TripData, type ExpenseItem } from "./types";
+import {
+  CATEGORIES,
+  CATEGORY_COLORS,
+  CURRENCIES,
+  getAvatarColor,
+  TOAST_STYLE,
+  TOAST_DURATION,
+  getAvatarText,
+} from "./constants";
+import { TripLoader } from "./components/TripLoader";
+import { CreateTripScreen } from "./components/CreateTripScreen";
+import { BalancesSection } from "./components/BalancesSection";
+import { SettlementSection } from "./components/SettlementSection";
+import { RecordsList } from "./components/RecordsList";
+import { TotalCard } from "./components/TotalCard";
+import { ConfirmModal } from "./components/ConfirmModal";
+import { FavoritesModal } from "./components/FavoritesModal";
 
 function ExpensesPageContent() {
   const router = useRouter();
@@ -799,7 +704,7 @@ function ExpensesPageContent() {
       ];
 
       const transactionRows = optimisticExpenses.map(e => {
-        const row: any[] = [
+        const row: (string | number)[] = [
           e.date,
           CATEGORIES.find(c => c.id === e.category)?.label || '其他',
           e.note || '',
@@ -1097,175 +1002,20 @@ function ExpensesPageContent() {
   // 情況 C: 沒有 code -> 顯示「建立新旅程」
   if (!code) {
     return (
-      <div className="min-h-screen bg-black p-4 pt-12 text-white pb-20 relative overflow-hidden">
-        {/* Background decorative orbs */}
-        <div className="fixed top-20 -left-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
-        />
-        <div className="fixed bottom-20 -right-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)' }}
-        />
-        <Toaster position="bottom-center" theme="dark" richColors expand={false} />
-        <div className="max-w-md mx-auto relative">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-3" style={{ filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}>✈️</div>
-              <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">旅程記帳</h1>
-              <p className="text-gray-500 text-sm mt-2">輕鬆分帳，旅途無憂</p>
-            </div>
-
-            {/* #1: Join existing trip */}
-            <div className="bg-[#1c1c1e] rounded-2xl p-4 mb-6 border border-gray-800">
-              <div className="text-sm text-gray-400 mb-2">🔗 加入旅程</div>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono"
-                  placeholder="輸入旅程碼"
-                  aria-label="旅程碼"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  maxLength={8}
-                  onKeyDown={(e) => e.key === 'Enter' && handleJoinTrip()}
-                />
-                <button
-                  onClick={handleJoinTrip}
-                  className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
-                >
-                  加入
-                </button>
-              </div>
-            </div>
-
-            {/* #9: Recent trips */}
-            {recentTrips.length > 0 && (
-              <div className="mb-6">
-                <div className="text-sm text-gray-400 mb-2">📋 最近旅程</div>
-                <div className="space-y-2">
-                  {recentTrips.map(trip => (
-                    <div
-                      key={trip.code}
-                      className="flex items-center bg-[#1c1c1e] rounded-xl border border-gray-800 hover:bg-gray-800/80 transition-colors overflow-hidden"
-                    >
-                      <button
-                        onClick={() => router.push(`/expenses?code=${trip.code}`)}
-                        className="flex-1 min-w-0 flex items-center justify-between p-3 text-left"
-                        aria-label={`開啟旅程 ${trip.name}`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium truncate">{trip.name}</div>
-                          <div className="text-xs text-gray-500 font-mono">{trip.code}</div>
-                        </div>
-                        <div className="text-xs text-gray-400 flex-shrink-0 ml-2">{trip.date}</div>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setRecentTrips(prev => {
-                            const updated = prev.filter(t => t.code !== trip.code);
-                            if (typeof window !== 'undefined') {
-                              try {
-                                localStorage.setItem('tripUtility_recentTrips', JSON.stringify(updated));
-                              } catch {
-                                // ignore (private mode / quota)
-                              }
-                            }
-                            return updated;
-                          });
-                        }}
-                        className="min-w-11 min-h-11 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
-                        aria-label={`移除 ${trip.name} 出最近旅程`}
-                        title="移除"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex-1 border-t border-gray-800" />
-              <span className="text-gray-500 text-xs">或者建立新旅程</span>
-              <div className="flex-1 border-t border-gray-800" />
-            </div>
-
-            <input
-            className="w-full p-4 bg-[#1c1c1e] rounded-xl mb-4 border border-gray-800"
-            placeholder="旅程名稱 (如: 東京之旅)"
-            aria-label="旅程名稱"
-            value={tripName}
-            onChange={(e) => setTripName(e.target.value)}
-            />
-
-            {/* #5: Member avatar preview */}
-            {memberNames.some(n => n.trim()) && (
-              <div className="flex gap-2 mb-3 px-1">
-                {memberNames.filter(n => n.trim()).map((n, i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ backgroundColor: getAvatarColor(i) }}
-                  >
-                    {getAvatarText(n.trim())}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-2 mb-6">
-                {memberNames.map((n, i) => (
-                <div key={i} className="flex gap-2">
-                    <input
-                        className="flex-1 p-4 bg-[#1c1c1e] rounded-xl border border-gray-800"
-                        placeholder={`成員 ${i + 1}（如：${MEMBER_NAME_EXAMPLES[i % MEMBER_NAME_EXAMPLES.length]}）`}
-                        aria-label={`成員 ${i + 1} 名稱`}
-                        value={n}
-                        onChange={(e) => {
-                        const next = [...memberNames];
-                        next[i] = e.target.value;
-                        setMemberNames(next);
-                        }}
-                    />
-                    {memberNames.length > 2 && (
-                        <button
-                          onClick={() => setMemberNames(memberNames.filter((_, idx) => idx !== i))}
-                          className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-red-400"
-                        >
-                          ✕
-                        </button>
-                    )}
-                </div>
-                ))}
-            </div>
-
-            <div className="flex gap-2">
-                <button onClick={() => setMemberNames([...memberNames, ""])} className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-gray-400">
-                    +
-                </button>
-                <button
-                  onClick={handleCreateTrip}
-                  disabled={submitting}
-                  className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                    {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 建立中...</> : '🚀 開始旅程'}
-                </button>
-            </div>
-
-            {/* Footer Branding */}
-            <div className="mt-10 text-center">
-              <a
-                href="https://www.instagram.com/midlife_ai_hk"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-              >
-                <span>Made by</span>
-                <span className="font-medium">@midlife_ai_hk</span>
-              </a>
-            </div>
-        </div>
-      </div>
+      <CreateTripScreen
+        joinCode={joinCode}
+        setJoinCode={setJoinCode}
+        onJoin={handleJoinTrip}
+        recentTrips={recentTrips}
+        setRecentTrips={setRecentTrips}
+        onOpenTrip={(c) => router.push(`/expenses?code=${c}`)}
+        tripName={tripName}
+        setTripName={setTripName}
+        memberNames={memberNames}
+        setMemberNames={setMemberNames}
+        onCreate={handleCreateTrip}
+        submitting={submitting}
+      />
     );
   }
 
@@ -1286,44 +1036,11 @@ function ExpensesPageContent() {
 
       {/* Confirm Modal (#9) */}
       {confirmModal && (
-        <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6"
-          onClick={() => setConfirmModal(null)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="bg-[#2c2c2e] rounded-2xl w-full max-w-sm overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-5 flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mb-3">
-                <Trash2 className="w-6 h-6 text-red-400" aria-hidden="true" />
-              </div>
-              <div className="text-base font-semibold">
-                {confirmModal.message}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">呢個動作冇得復原</div>
-            </div>
-            <div className="flex border-t border-gray-700">
-              <button
-                onClick={() => setConfirmModal(null)}
-                className="flex-1 py-3 text-blue-400 font-medium border-r border-gray-700 active:bg-gray-700/50"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => {
-                  confirmModal.onConfirm();
-                  setConfirmModal(null);
-                }}
-                className="flex-1 py-3 text-red-400 font-bold active:bg-gray-700/50"
-              >
-                確定刪除
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
       )}
       <div className="max-w-md mx-auto">
           {/* Header */}
@@ -1416,134 +1133,16 @@ function ExpensesPageContent() {
 
           {/* Favorites Modal */}
           {showFavoritesModal && (
-            <div
-              className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-              onClick={() => setShowFavoritesModal(false)}
-            >
-              <div
-                className="bg-[#1c1c1e] rounded-2xl p-6 max-w-md w-full border border-gray-800"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h2 className="text-xl font-bold mb-4">⭐ 如何收藏此 App？</h2>
-                <div className="space-y-4 text-sm text-gray-300">
-                  <div>
-                    <div className="font-semibold text-white mb-2">📱 iOS（推薦）：</div>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li>點擊下方「分享」按鈕 <span className="text-blue-400">(↑)</span></li>
-                      <li>選擇「加入主畫面」</li>
-                      <li>或選擇「加入我的最愛」</li>
-                    </ol>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white mb-2">🤖 Android：</div>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li>點擊瀏覽器選單 <span className="text-blue-400">(⋮)</span></li>
-                      <li>選擇「安裝應用程式」或「加到主螢幕」</li>
-                    </ol>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowFavoritesModal(false)}
-                  className="w-full mt-6 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
-                >
-                  知道了
-                </button>
-              </div>
-            </div>
+            <FavoritesModal onClose={() => setShowFavoritesModal(false)} />
           )}
 
           {/* Total Card - Premium Gradient */}
-          <div className="mb-6 p-6 rounded-3xl shadow-lg border border-gray-700/50 relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-            }}
-          >
-            {/* Subtle glow orb */}
-            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-20"
-              style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
-            />
-            <div className="relative">
-              <div className="text-blue-200 text-sm mb-1">{t.totalExpense}</div>
-              <div className="text-4xl font-extrabold text-white tracking-tight">
-                  <span className="text-blue-200/90 text-2xl mr-1">HKD</span>
-                  {optimisticExpenses.reduce((s, e) => s + e.amountHKD, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-              </div>
-              {/* Per-person average + record count, or empty hint */}
-              {data.members.length > 0 && optimisticExpenses.length > 0 ? (
-                <div className="flex items-center gap-2 mt-2 text-sm text-blue-100/90">
-                  <span>人均 ${(optimisticExpenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}</span>
-                  <span className="text-blue-200/40">·</span>
-                  <span>{optimisticExpenses.length} 筆記錄</span>
-                </div>
-              ) : (
-                <div className="mt-2 text-sm text-blue-100/80">
-                  ↓ 喺下面記低第一筆支出
-                </div>
-              )}
-
-              {/* Rainbow Proportion Bar + Category Legend */}
-              {optimisticExpenses.length > 0 && (() => {
-                const total = optimisticExpenses.reduce((s, e) => s + e.amountHKD, 0);
-                if (total === 0) return null;
-
-                const categoryTotals = CATEGORIES.map(cat => ({
-                  id: cat.id,
-                  label: cat.label,
-                  icon: cat.icon,
-                  amount: optimisticExpenses
-                    .filter(e => e.category === cat.id)
-                    .reduce((s, e) => s + e.amountHKD, 0),
-                })).filter(c => c.amount > 0);
-
-                if (categoryTotals.length === 0) return null;
-
-                return (
-                  <div className="mt-4">
-                    <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
-                      {categoryTotals.map(cat => (
-                        <button
-                          key={cat.id}
-                          onClick={() => setCategoryFilter(prev => prev === cat.id ? null : cat.id)}
-                          style={{
-                            width: `${(cat.amount / total) * 100}%`,
-                            backgroundColor: CATEGORY_COLORS[cat.id] || '#6b7280',
-                            opacity: categoryFilter && categoryFilter !== cat.id ? 0.3 : 1,
-                          }}
-                          className="transition-all duration-300 hover:brightness-125"
-                          aria-label={`篩選 ${cat.label} 類別`}
-                          title={cat.label}
-                        />
-                      ))}
-                    </div>
-                    {/* Category Legend - clickable filter chips */}
-                    <div className="flex flex-wrap gap-x-2 gap-y-1">
-                      {categoryTotals.map(cat => {
-                        const isActive = categoryFilter === cat.id;
-                        return (
-                          <button
-                            key={cat.id}
-                            onClick={() => setCategoryFilter(prev => prev === cat.id ? null : cat.id)}
-                            aria-pressed={isActive}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
-                              isActive
-                                ? 'bg-white/15 text-white'
-                                : categoryFilter
-                                  ? 'text-gray-500 hover:text-gray-300'
-                                  : 'text-gray-300 hover:bg-white/5'
-                            }`}
-                          >
-                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
-                            <span>{cat.icon} {cat.label}</span>
-                            <span className={isActive ? 'text-white/80' : 'text-gray-400'}>{((cat.amount / total) * 100).toFixed(0)}%</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
+          <TotalCard
+            expenses={optimisticExpenses}
+            members={data.members}
+            categoryFilter={categoryFilter}
+            setCategoryFilter={setCategoryFilter}
+          />
 
           {/* Action Buttons Row - Secondary actions after total */}
           <div className="grid grid-cols-4 gap-2 mb-6">
@@ -1976,348 +1575,42 @@ function ExpensesPageContent() {
 
           {/* Balances Section - hide when no expenses */}
           {optimisticExpenses.length > 0 && (
-          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <button
-              onClick={() => setBalancesExpanded(!balancesExpanded)}
-              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
-            >
-              <h3 className="font-bold text-gray-300">{t.balances}</h3>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${balancesExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {balancesExpanded && (
-              <div className="px-4 pb-4 space-y-2">
-                {Object.entries(balances).map(([id, bal]) => {
-                  const member = data.members.find((m) => m.id === id);
-                  if (!member) return null;
-                  const memberIdx = data.members.findIndex(m => m.id === id);
-
-                  // Calculate 總墊支 (Total Paid)
-                  const totalPaid = optimisticExpenses
-                    .filter(e => e.payerId === id)
-                    .reduce((sum, e) => sum + e.amountHKD, 0);
-
-                  // Calculate 總消費 (Total Consumed)
-                  const totalConsumed = optimisticExpenses
-                    .filter(e => e.participants.some(p => {
-                      const memberId = typeof p === 'string' ? p : p.id;
-                      return memberId === id;
-                    }))
-                    .reduce((sum, e) => {
-                      // Find this member's participant record
-                      const participant = e.participants.find(p => {
-                        const memberId = typeof p === 'string' ? p : p.id;
-                        return memberId === id;
-                      });
-
-                      if (!participant) return sum;
-
-                      // Check if custom split exists
-                      const customAmount = typeof participant === 'object' ? participant.customAmount : undefined;
-                      const share = customAmount !== undefined
-                        ? customAmount
-                        : e.amountHKD / e.participants.length;
-
-                      return sum + share;
-                    }, 0);
-
-                  const maxAmount = Math.max(totalPaid, totalConsumed, 1);
-
-                  return (
-                    <div key={id} className="bg-black p-3 rounded-xl">
-                      <div className="flex items-center gap-3 mb-2">
-                        {/* Avatar */}
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: getAvatarColor(memberIdx) }}
-                        >
-                          {getAvatarText(member.name)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium truncate">{member.name}</span>
-                            <span className={`text-sm font-bold ${bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}`}>
-                              {bal > 0 ? `+$${bal.toFixed(1)}` : bal < 0 ? `-$${Math.abs(bal).toFixed(1)}` : "$0"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Visual bars */}
-                      <div className="space-y-1 pl-12">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-400 w-6">{t.totalAdvanced?.slice(0,1) || '墊'}</span>
-                          <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalPaid / maxAmount) * 100}%` }} />
-                          </div>
-                          <span className="text-[10px] text-gray-500 w-12 text-right">${totalPaid.toFixed(1)}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-400 w-6">{t.totalSpent?.slice(0,1) || '花'}</span>
-                          <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalConsumed / maxAmount) * 100}%` }} />
-                          </div>
-                          <span className="text-[10px] text-gray-500 w-12 text-right">${totalConsumed.toFixed(1)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            <BalancesSection
+              expenses={optimisticExpenses}
+              members={data.members}
+              balances={balances}
+              expanded={balancesExpanded}
+              onToggle={() => setBalancesExpanded(!balancesExpanded)}
+            />
           )}
 
           {/* Settlement Plan Section - hide when no expenses */}
           {optimisticExpenses.length > 0 && (
-          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <button
-              onClick={() => setSettlementsExpanded(!settlementsExpanded)}
-              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
-            >
-              <h3 className="font-bold text-gray-300">{t.settlements}</h3>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${settlementsExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {settlementsExpanded && (
-              <div className="px-4 pb-4">
-                {settlements.length === 0 ? (
-                  <div className="text-center py-6">
-                    <div className="text-3xl mb-2">🎉</div>
-                    <div className="text-gray-400 text-sm">{t.emptySettlements}</div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {settlements.map((s, idx) => {
-                      // 用 id 配對（修正：之前靠同名配對，兩個同名成員會顯示錯誤頭像）
-                      const fromIdx = Math.max(0, data.members.findIndex(m => m.id === s.fromId));
-                      const toIdx = Math.max(0, data.members.findIndex(m => m.id === s.toId));
-                      const settlementKey = `${s.from}→${s.to}@${s.amount.toFixed(1)}`;
-                      const isPaid = paidSettlements.has(settlementKey);
-                      const togglePaid = () => {
-                        setPaidSettlements(prev => {
-                          const next = new Set(prev);
-                          if (next.has(settlementKey)) next.delete(settlementKey);
-                          else next.add(settlementKey);
-                          if (typeof window !== 'undefined') {
-                            try {
-                              localStorage.setItem(
-                                `tripUtility_paidSettlements_${data.code}`,
-                                JSON.stringify(Array.from(next))
-                              );
-                            } catch {
-                              // ignore (private mode / quota)
-                            }
-                          }
-                          return next;
-                        });
-                      };
-                      return (
-                      <div
-                        key={idx}
-                        className={`bg-black p-3 rounded-xl space-y-2 transition-opacity ${isPaid ? 'opacity-50' : ''}`}
-                        aria-label={`${s.from} 還 $${s.amount.toFixed(1)} 俾 ${s.to}${isPaid ? '（已付清）' : ''}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-red-500/40"
-                            style={{ backgroundColor: getAvatarColor(fromIdx) }}
-                          >
-                            {getAvatarText(s.from)}
-                          </div>
-                          <span className={`text-sm font-medium text-red-300 truncate flex-1 min-w-0 ${isPaid ? 'line-through' : ''}`}>{s.from}</span>
-                          <ArrowRight className="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
-                          <span className={`text-sm font-medium text-green-300 truncate flex-1 min-w-0 text-right ${isPaid ? 'line-through' : ''}`}>{s.to}</span>
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-green-500/40"
-                            style={{ backgroundColor: getAvatarColor(toIdx) }}
-                          >
-                            {getAvatarText(s.to)}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className={`flex-1 text-center text-base font-bold tracking-tight ${isPaid ? 'text-gray-500 line-through' : 'text-yellow-300'}`}>
-                            HKD ${s.amount.toFixed(1)}
-                          </div>
-                          <button
-                            onClick={togglePaid}
-                            aria-pressed={isPaid}
-                            className={`min-w-11 h-9 px-3 inline-flex items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors ${
-                              isPaid
-                                ? 'bg-green-500/20 text-green-300'
-                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                            }`}
-                          >
-                            <Check className={`w-3.5 h-3.5 ${isPaid ? '' : 'opacity-40'}`} />
-                            {isPaid ? '已付清' : '標記'}
-                          </button>
-                        </div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+            <SettlementSection
+              settlements={settlements}
+              members={data.members}
+              tripCode={data.code}
+              paidSettlements={paidSettlements}
+              setPaidSettlements={setPaidSettlements}
+              expanded={settlementsExpanded}
+              onToggle={() => setSettlementsExpanded(!settlementsExpanded)}
+            />
           )}
 
           {/* Records List - Grouped by Date */}
-          <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
-            <button
-              onClick={() => setRecordsExpanded(!recordsExpanded)}
-              className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
-            >
-              <h3 className="font-bold text-gray-300">{t.recordList}</h3>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${recordsExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {recordsExpanded && (
-              <div className="px-4 pb-4">
-                {/* Active category filter indicator */}
-                {categoryFilter && (() => {
-                  const cat = CATEGORIES.find(c => c.id === categoryFilter);
-                  return cat ? (
-                    <div className="mb-3 inline-flex items-center gap-2 bg-white/10 rounded-full pl-3 pr-1 py-1 text-xs">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
-                      <span>只睇「{cat.icon} {cat.label}」</span>
-                      <button
-                        onClick={() => setCategoryFilter(null)}
-                        className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-400 hover:text-white"
-                        aria-label="清除類別篩選"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : null;
-                })()}
-                {expensesByDate.length === 0 && (
-                  <div className="text-center py-10">
-                    <div className="text-5xl mb-3">📭</div>
-                    <div className="text-gray-400 mb-1">{categoryFilter ? t.emptyFiltered : t.emptyRecords}</div>
-                    <div className="text-xs text-gray-500">{categoryFilter ? t.emptyFilteredHint : t.emptyRecordsHint}</div>
-                  </div>
-                )}
-
-                {/* Date Cards */}
-                <div className="space-y-3">
-                  {expensesByDate.map((dateGroup) => {
-                    const isExpanded = expandedDates.includes(dateGroup.date);
-
-                    // Toggle handler for this specific date - Multi-expand mode
-                    const handleToggle = () => {
-                      setExpandedDates(prev =>
-                        prev.includes(dateGroup.date)
-                          ? prev.filter(d => d !== dateGroup.date)  // Remove if already expanded
-                          : [...prev, dateGroup.date]               // Add if not expanded
-                      );
-                    };
-
-                  return (
-                    <div key={dateGroup.date} className="border border-gray-800 rounded-2xl overflow-hidden">
-                      {/* Date Header Card */}
-                      <button
-                        type="button"
-                        onClick={handleToggle}
-                        className="w-full p-4 bg-black hover:bg-gray-900/80 transition-colors flex justify-between items-center"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-blue-300">
-                            <Calendar className="w-5 h-5" aria-hidden="true" />
-                          </div>
-                          <div className="text-left">
-                            <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
-                            <div className="mt-0.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-800 text-[10px] text-gray-300 font-medium">
-                                {dateGroup.expenses.length} {t.recordsSuffix}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right flex items-center gap-3">
-                          <div>
-                            <div className="font-bold text-white text-sm">
-                              <span className="text-gray-500 text-[10px] font-normal mr-1">HKD</span>
-                              ${dateGroup.total.toFixed(1)}
-                            </div>
-                          </div>
-                          <ChevronDown
-                            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                          />
-                        </div>
-                      </button>
-
-                      {/* Expanded Records */}
-                      {isExpanded && (
-                        <div className="px-4 pb-4 space-y-2 bg-black/30">
-                          {dateGroup.expenses.map((e) => {
-                            // Calculate beneficiaries display
-                            const allParticipants = e.participants.length === data.members.length;
-                            const beneficiariesText = allParticipants
-                              ? "全員"
-                              : e.participants.map(p => {
-                                  const memberId = typeof p === 'string' ? p : p.id;
-                                  return data.members.find(m => m.id === memberId)?.name;
-                                }).filter(Boolean).join(", ");
-
-                            return (
-                              <div key={e.id} className="flex items-stretch bg-[#1c1c1e] rounded-xl border border-gray-800 overflow-hidden">
-                                {/* Category color indicator */}
-                                <div className="w-1 flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[e.category || 'other'] || '#6b7280' }} />
-                                <div className="flex justify-between items-center flex-1 p-3 min-w-0">
-                                <div className="flex-1 min-w-0 pr-3">
-                                  <div className="font-bold text-sm">
-                                    {CATEGORIES.find(c => c.id === e.category)?.icon || "📝"} {(() => { const v = t[e.category as keyof typeof t]; return typeof v === 'string' ? v : e.title; })()}
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-0.5">
-                                    {data.members.find(m => m.id === e.payerId)?.name} {t.paidSuffix} • {beneficiariesText}
-                                    {e.originalCurrency && e.originalCurrency !== 'HKD' && e.originalAmount && (
-                                      <span className="ml-1 text-gray-400">({t.origPrefix} {e.originalCurrency} {e.originalAmount.toFixed(0)})</span>
-                                    )}
-                                  </div>
-                                  {e.note && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      <span className="opacity-70">📝</span> {e.note}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-right flex items-center gap-0.5 flex-shrink-0">
-                                  <div className="font-bold text-sm mr-1">${e.amountHKD.toFixed(1)}</div>
-                                  <button
-                                    onClick={() => handleEdit(e)}
-                                    className="min-w-11 min-h-11 flex items-center justify-center text-lg hover:bg-blue-500/20 rounded-lg transition-colors"
-                                    aria-label="編輯記錄"
-                                    title="編輯"
-                                  >
-                                    ✏️
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(e.id)}
-                                    className="min-w-11 min-h-11 flex items-center justify-center hover:bg-red-500/20 rounded-lg transition-colors text-gray-400 hover:text-red-400"
-                                    aria-label="刪除記錄"
-                                    title="刪除"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            )}
-          </div>
+          <RecordsList
+            dateGroups={expensesByDate}
+            members={data.members}
+            categoryFilter={categoryFilter}
+            setCategoryFilter={setCategoryFilter}
+            expandedDates={expandedDates}
+            setExpandedDates={setExpandedDates}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            formatDate={formatDate}
+            expanded={recordsExpanded}
+            onToggle={() => setRecordsExpanded(!recordsExpanded)}
+          />
 
           {/* Footer Branding */}
           <div className="mt-6 mb-4 text-center">
