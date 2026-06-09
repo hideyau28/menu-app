@@ -30,8 +30,8 @@ export async function GET() {
       // Log the error with attempt number
       console.error(`Health check attempt ${attempt} failed:`, {
         error: lastError.message,
-        code: (error as any)?.code,
-        errno: (error as any)?.errno,
+        code: (error as NodeJS.ErrnoException)?.code,
+        errno: (error as NodeJS.ErrnoException)?.errno,
       });
 
       // If this was the first attempt and we got a connection error, wait and retry
@@ -40,8 +40,8 @@ export async function GET() {
           lastError.message.includes('ECONNRESET') ||
           lastError.message.includes('ETIMEDOUT') ||
           lastError.message.includes('ENOTFOUND') ||
-          (error as any)?.code === 'ECONNRESET' ||
-          (error as any)?.code === 'ETIMEDOUT';
+          (error as NodeJS.ErrnoException)?.code === 'ECONNRESET' ||
+          (error as NodeJS.ErrnoException)?.code === 'ETIMEDOUT';
 
         if (isConnectionError) {
           console.log('Connection error detected, waiting 2s before retry...');
@@ -65,7 +65,7 @@ export async function GET() {
       message: lastError?.message || 'Database connection failed',
       attempts: attempt,
       duration: `${duration}ms`,
-      code: (lastError as any)?.code,
+      code: (lastError as NodeJS.ErrnoException)?.code,
     },
     { status: 503 } // Service Unavailable (temporary)
   );
