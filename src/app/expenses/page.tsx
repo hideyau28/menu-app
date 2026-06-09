@@ -218,6 +218,9 @@ function ExpensesPageContent() {
         return updated;
       });
     }
+    // 刻意只依賴 code + name（rename 時先 re-sync），唔依賴成個 data 物件，
+    // 以免每次支出變動都重新寫入 recent trips
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.code, data?.name]);
 
   // Load paid-settlements set per trip
