@@ -49,9 +49,9 @@ export async function createTrip(name: string, memberNames: string[]) {
         );
         tripId = tripResult.rows[0].id;
         break;
-      } catch (e: any) {
-        // unique violation
-        if (e?.code === "23505") {
+      } catch (e) {
+        // unique violation (Postgres error code 23505)
+        if ((e as { code?: string })?.code === "23505") {
           code = generateCode();
         } else {
           throw e;
@@ -69,9 +69,9 @@ export async function createTrip(name: string, memberNames: string[]) {
     await client.query("COMMIT");
     revalidatePath('/expenses');
     return { code };
-  } catch (e: any) {
+  } catch (e) {
     await client.query("ROLLBACK");
-    const errorMsg = e?.message || "Unknown error during trip creation";
+    const errorMsg = e instanceof Error ? e.message : "Unknown error during trip creation";
     throw new Error(`Failed to create trip: ${errorMsg}`);
   } finally {
     client.release();
