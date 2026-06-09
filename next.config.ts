@@ -1,17 +1,13 @@
-// Feat: Multi-date expansion, unified chevron icons, improved error UI - 1737334800000
-// Enable multi-date expansion, update error UI to Refresh style, and unify header icons
 import type { NextConfig } from "next";
-// @ts-ignore - next-pwa doesn't have TypeScript definitions
-import withPWA from 'next-pwa';
 
 const nextConfig: NextConfig = {
-  turbopack: {}, // Empty turbopack config to avoid webpack conflict
+  turbopack: {
+    // 鎖定 workspace root，避免被上層 stray lockfile（~/pnpm-lock.yaml）誤判
+    root: process.cwd(),
+  },
 };
 
-export default withPWA({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-  buildExcludes: [/middleware-manifest\.json$/],
-})(nextConfig);
+// PWA：暫用 manifest-only（「加到主畫面」靠 public/manifest.json 已經 work）。
+// 真・offline service worker 留待：(1) 有 sync 基建，(2) serwist + Turbopack 穩定 後先加，
+// 避免 ship 一個驗證唔到、可能 serve 過期內容嘅 SW。
+export default nextConfig;
