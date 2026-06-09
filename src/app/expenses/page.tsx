@@ -1,17 +1,39 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, useRef } from "react";
+import { Suspense, useEffect, useMemo, useState, useRef, useOptimistic, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense, renameTrip } from "./actions";
 import { toast, Toaster } from 'sonner';
-import * as XLSX from 'xlsx';
 import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Trash2, ArrowRight, Calendar } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { enUS, zhTW } from 'date-fns/locale';
+import { logger } from '@/lib/logger';
 
 // 定義資料類型
 type TripData = Awaited<ReturnType<typeof getTripByCode>>;
+type ExpenseItem = NonNullable<TripData>["expenses"][number];
+
+// Optimistic UI：即時反映新增/改/刪，唔等 server round-trip。
+// 注意：呢度只係將「已經算好嘅值」重新排列顯示，唔做任何金額計算。
+type OptimisticAction =
+  | { type: "add"; expense: ExpenseItem }
+  | { type: "update"; expense: ExpenseItem }
+  | { type: "delete"; id: string };
+
+function applyExpenseOptimistic(
+  state: ExpenseItem[],
+  action: OptimisticAction,
+): ExpenseItem[] {
+  switch (action.type) {
+    case "add":
+      return [action.expense, ...state];
+    case "update":
+      return state.map((e) => (e.id === action.expense.id ? action.expense : e));
+    case "delete":
+      return state.filter((e) => e.id !== action.id);
+  }
+}
 
 const CATEGORIES = [
   { id: "dining", label: "餐飲", icon: "🍽️" },
@@ -109,6 +131,12 @@ function ExpensesPageContent() {
 
   // State
   const [data, setData] = useState<TripData | null>(null);
+  // Optimistic 層：渲染由 optimisticExpenses 出發，即時反映新增/改/刪
+  const [, startTransition] = useTransition();
+  const [optimisticExpenses, applyOptimistic] = useOptimistic(
+    data?.expenses ?? [],
+    applyExpenseOptimistic,
+  );
   // 如果網址有 code，預設就是 loading 狀態，避免閃爍出現在「建立新旅程」畫面
   const [loading, setLoading] = useState(!!code);
 
@@ -215,6 +243,9 @@ function ExpensesPageContent() {
         if (res) {
           // DB 有資料 -> 設定資料並顯示主畫面
           setData(res);
+          // 記住呢個旅程，俾首頁 `/` 下次直接 resume
+          // （修正：之前 BottomNav 係死碼，冇人寫呢個 cookie，所以 resume 從來唔 work）
+          document.cookie = `last_trip_code=${res.code}; path=/; max-age=2592000; samesite=lax`;
           // 預設填入第一個成員並全選參與者
           if (res.members.length > 0) {
             setPayerId(prev => prev || res.members[0].id);
@@ -234,7 +265,12 @@ function ExpensesPageContent() {
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          // 修正：建立旅程成功後 handleCreateTrip 冇 reset submitting，
+          // 會令新增掣卡住「新增中…」直到 safety timer。載入旅程時一定唔係 submit 中，安全 reset。
+          setSubmitting(false);
+        }
       });
 
     return () => {
@@ -250,7 +286,7 @@ function ExpensesPageContent() {
         try {
           setExchangeRates(JSON.parse(savedRates));
         } catch (e) {
-          console.error('Failed to parse exchange rates:', e);
+          logger.error('Failed to parse exchange rates:', e);
         }
       }
       // #9: Load recent trips
@@ -344,7 +380,7 @@ function ExpensesPageContent() {
       const res = await getTripByCode(code);
       if (res) setData(res);
     } catch (error) {
-      console.error("Reload failed", error);
+      logger.error("Reload failed", error);
     }
   };
 
@@ -372,7 +408,7 @@ function ExpensesPageContent() {
     setSubmitting(true);
     setLoading(true);
     const safetyTimer = setTimeout(() => {
-      console.warn("[createTrip] safety timeout fired (30s) — unlocking button");
+      logger.warn("[createTrip] safety timeout fired (30s) — unlocking button");
       setSubmitting(false);
       setLoading(false);
       showToast("提交逾時，請檢查網絡", "error");
@@ -385,7 +421,7 @@ function ExpensesPageContent() {
       router.replace(`/expenses?code=${res.code}`);
     } catch (e) {
       clearTimeout(safetyTimer);
-      console.error("[createTrip] failed:", e);
+      logger.error("[createTrip] failed:", e);
       const msg = e instanceof Error ? e.message : "建立失敗，請檢查網絡";
       showToast(msg, "error");
       setLoading(false);
@@ -470,50 +506,65 @@ function ExpensesPageContent() {
       }
     }
 
-    setSubmitting(true);
-    // Safety: force-unlock button if action hangs > 30s
-    const safetyTimer = setTimeout(() => {
-      console.warn("[addExpense] safety timeout fired (30s) — unlocking button");
-      setSubmitting(false);
-      showToast("提交逾時，請重試", "error");
-    }, 30000);
+    // Optimistic 暫存記錄：用表單現有值組成顯示用 shape（唔做新嘅金額運算）
+    const payerName = data.members.find((m) => m.id === payerId)?.name ?? "";
+    const optimisticParticipants =
+      splitMode === 'custom'
+        ? participantIds.map((id) => ({ id, customAmount: parseFloat(customSplits[id]) }))
+        : participantIds;
+    const tempExpense: ExpenseItem = {
+      id: `temp-${Date.now()}`,
+      title: CATEGORIES.find((c) => c.id === category)?.label ?? "其他",
+      category,
+      note: note || null,
+      date,
+      payerId,
+      payerName,
+      amountHKD,
+      participants: optimisticParticipants,
+      originalCurrency: finalCurrency,
+      originalAmount: amountValue,
+    };
 
-    try {
-      await addExpense({
-        code: data.code,
-        title: CATEGORIES.find((c) => c.id === category)?.label ?? "其他",
-        category,
-        note: note || undefined,
-        date,
-        payerId,
-        participantIds,
-        amountHKD,
-        originalCurrency: finalCurrency,
-        originalAmount: amountValue,
-        customSplits: splitMode === 'custom' ? customSplits : undefined,
-      });
+    startTransition(async () => {
+      applyOptimistic({ type: 'add', expense: tempExpense }); // 即時顯示
+      setSubmitting(true);
+      try {
+        await addExpense({
+          code: data.code,
+          title: tempExpense.title,
+          category,
+          note: note || undefined,
+          date,
+          payerId,
+          participantIds,
+          amountHKD,
+          originalCurrency: finalCurrency,
+          originalAmount: amountValue,
+          customSplits: splitMode === 'custom' ? customSplits : undefined,
+        });
 
-      // #2: Auto-expand the date of the newly added expense
-      setExpandedDates(prev => prev.includes(date) ? prev : [...prev, date]);
+        // #2: Auto-expand the date of the newly added expense
+        setExpandedDates((prev) => (prev.includes(date) ? prev : [...prev, date]));
 
-      setAmount("");
-      setNote("");
-      setCurrency('HKD'); // Reset to HKD
-      setCustomCurrency(''); // Clear custom currency
-      setSplitMode('equal'); // Reset split mode
-      setCustomSplits({}); // Clear custom splits
-      // 重新全選所有參與者
-      setParticipantIds(data.members.map((m) => m.id));
-      await reloadTrip();
-      showToast("已新增");
-    } catch (e) {
-      console.error("[addExpense] failed:", e);
-      const msg = e instanceof Error ? e.message : "新增失敗";
-      showToast(msg, "error");
-    } finally {
-      clearTimeout(safetyTimer);
-      setSubmitting(false);
-    }
+        setAmount("");
+        setNote("");
+        setCurrency('HKD'); // Reset to HKD
+        setCustomCurrency(''); // Clear custom currency
+        setSplitMode('equal'); // Reset split mode
+        setCustomSplits({}); // Clear custom splits
+        // 重新全選所有參與者
+        setParticipantIds(data.members.map((m) => m.id));
+        await reloadTrip(); // server 真值回來，optimistic 自動退場
+        showToast("已新增");
+      } catch (e) {
+        logger.error("[addExpense] failed:", e);
+        const msg = e instanceof Error ? e.message : "新增失敗";
+        showToast(msg, "error");
+      } finally {
+        setSubmitting(false);
+      }
+    });
   };
 
   // 5. 刪除支出 (Delete Expense) - Fix #9: Use custom modal
@@ -521,16 +572,19 @@ function ExpensesPageContent() {
     if (!data) return;
     setConfirmModal({
       message: "確定刪除此記錄？",
-      onConfirm: async () => {
-        try {
-          await deleteExpense(data.code, expenseId);
-          await reloadTrip();
-          showToast("已刪除");
-        } catch (e) {
-          console.error("[deleteExpense] failed:", e);
-          const msg = e instanceof Error ? e.message : "刪除失敗";
-          showToast(msg, "error");
-        }
+      onConfirm: () => {
+        startTransition(async () => {
+          applyOptimistic({ type: 'delete', id: expenseId }); // 即時移除
+          try {
+            await deleteExpense(data.code, expenseId);
+            await reloadTrip();
+            showToast("已刪除");
+          } catch (e) {
+            logger.error("[deleteExpense] failed:", e);
+            const msg = e instanceof Error ? e.message : "刪除失敗";
+            showToast(msg, "error");
+          }
+        });
       },
     });
   };
@@ -668,50 +722,70 @@ function ExpensesPageContent() {
       }
     }
 
-    setSubmitting(true);
-    const safetyTimer = setTimeout(() => {
-      console.warn("[updateExpense] safety timeout fired (30s) — unlocking button");
-      setSubmitting(false);
-      showToast("提交逾時，請重試", "error");
-    }, 30000);
+    // Optimistic 更新記錄：用表單現有值組成顯示用 shape（唔做新嘅金額運算）
+    const payerName = data.members.find((m) => m.id === payerId)?.name ?? "";
+    const optimisticParticipants =
+      splitMode === 'custom'
+        ? participantIds.map((id) => ({ id, customAmount: parseFloat(customSplits[id]) }))
+        : participantIds;
+    const updatedExpense: ExpenseItem = {
+      id: editingExpenseId,
+      title: CATEGORIES.find((c) => c.id === category)?.label ?? "其他",
+      category,
+      note: note || null,
+      date,
+      payerId,
+      payerName,
+      amountHKD,
+      participants: optimisticParticipants,
+      originalCurrency: finalCurrency,
+      originalAmount: amountValue,
+    };
 
-    try {
-      await updateExpense({
-        code: data.code,
-        expenseId: editingExpenseId,
-        title: CATEGORIES.find((c) => c.id === category)?.label ?? "其他",
-        category,
-        note: note || undefined,
-        date,
-        payerId,
-        participantIds,
-        amountHKD,
-        originalCurrency: finalCurrency,
-        originalAmount: amountValue,
-        customSplits: splitMode === 'custom' ? customSplits : undefined,
-      });
+    startTransition(async () => {
+      applyOptimistic({ type: 'update', expense: updatedExpense }); // 即時反映
+      setSubmitting(true);
+      try {
+        await updateExpense({
+          code: data.code,
+          expenseId: editingExpenseId,
+          title: updatedExpense.title,
+          category,
+          note: note || undefined,
+          date,
+          payerId,
+          participantIds,
+          amountHKD,
+          originalCurrency: finalCurrency,
+          originalAmount: amountValue,
+          customSplits: splitMode === 'custom' ? customSplits : undefined,
+        });
 
-      handleCancelEdit();
-      await reloadTrip();
-      showToast("已更新記錄");
-    } catch (e) {
-      console.error("[updateExpense] failed:", e);
-      const msg = e instanceof Error ? e.message : "更新失敗";
-      showToast(msg, "error");
-    } finally {
-      clearTimeout(safetyTimer);
-      setSubmitting(false);
-    }
+        handleCancelEdit();
+        await reloadTrip(); // server 真值回來，optimistic 自動退場
+        showToast("已更新記錄");
+      } catch (e) {
+        logger.error("[updateExpense] failed:", e);
+        const msg = e instanceof Error ? e.message : "更新失敗";
+        showToast(msg, "error");
+      } finally {
+        setSubmitting(false);
+      }
+    });
   };
 
   // 10. 匯出 Excel (Export Excel with 3 Sheets)
-  const handleExportExcel = () => {
-    if (!data || data.expenses.length === 0) {
+  const handleExportExcel = async () => {
+    if (!data || optimisticExpenses.length === 0) {
       showToast("沒有記錄可匯出", "error");
       return;
     }
 
     try {
+      // 只喺需要時先載入 exceljs，避免谷大首屏 bundle
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+
       // Sheet 1: 交易紀錄 (Transactions)
       const transactionHeaders = [
         '日期',
@@ -724,7 +798,7 @@ function ExpensesPageContent() {
         ...data.members.map(m => m.name), // Dynamic member columns
       ];
 
-      const transactionRows = data.expenses.map(e => {
+      const transactionRows = optimisticExpenses.map(e => {
         const row: any[] = [
           e.date,
           CATEGORIES.find(c => c.id === e.category)?.label || '其他',
@@ -757,18 +831,20 @@ function ExpensesPageContent() {
         return row;
       });
 
-      const ws1 = XLSX.utils.aoa_to_sheet([transactionHeaders, ...transactionRows]);
+      const ws1 = wb.addWorksheet('交易紀錄');
+      ws1.addRow(transactionHeaders);
+      transactionRows.forEach((r) => ws1.addRow(r));
 
       // Sheet 2: 結餘狀況 (Balances)
       const balanceHeaders = ['姓名', '代墊金額 (Paid)', '消費金額 (Share)', '淨結餘 (Balance)'];
       const balanceRows = data.members.map(member => {
         // Calculate total paid
-        const totalPaid = data.expenses
+        const totalPaid = optimisticExpenses
           .filter(e => e.payerId === member.id)
           .reduce((sum, e) => sum + e.amountHKD, 0);
 
         // Calculate total share
-        const totalShare = data.expenses
+        const totalShare = optimisticExpenses
           .filter(e => e.participants.some(p => {
             const memberId = typeof p === 'string' ? p : p.id;
             return memberId === member.id;
@@ -794,30 +870,38 @@ function ExpensesPageContent() {
         return [member.name, totalPaid, totalShare, balance];
       });
 
-      const ws2 = XLSX.utils.aoa_to_sheet([balanceHeaders, ...balanceRows]);
+      const ws2 = wb.addWorksheet('結餘狀況');
+      ws2.addRow(balanceHeaders);
+      balanceRows.forEach((r) => ws2.addRow(r));
 
       // Sheet 3: 建議還款 (Repayments)
       const repaymentHeaders = ['付款人 (From)', '收款人 (To)', '金額 (HKD)'];
       const repaymentRows = settlements.map(s => [s.from, s.to, s.amount]);
 
-      const ws3 = XLSX.utils.aoa_to_sheet([repaymentHeaders, ...repaymentRows]);
+      const ws3 = wb.addWorksheet('建議還款');
+      ws3.addRow(repaymentHeaders);
+      repaymentRows.forEach((r) => ws3.addRow(r));
 
-      // Create workbook and add sheets
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws1, '交易紀錄');
-      XLSX.utils.book_append_sheet(wb, ws2, '結餘狀況');
-      XLSX.utils.book_append_sheet(wb, ws3, '建議還款');
-
-      // Generate filename with timestamp
+      // Generate filename with timestamp (sanitize trip name for filesystem)
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = `${data.name}_Report_${timestamp}.xlsx`;
+      const safeName = (data.name || 'Trip').replace(/[\\/:*?"<>|]/g, '_');
+      const filename = `${safeName}_Report_${timestamp}.xlsx`;
 
-      // Write file
-      XLSX.writeFile(wb, filename);
+      // Write workbook to buffer and trigger download
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer as BlobPart], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
 
       showToast("已匯出 Excel · 請睇下載資料夾", "success");
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', error);
       showToast("匯出失敗", "error");
     }
   };
@@ -828,7 +912,7 @@ function ExpensesPageContent() {
     const bal: Record<string, number> = {};
     data.members.forEach((m) => (bal[m.id] = 0));
 
-    data.expenses.forEach((e) => {
+    optimisticExpenses.forEach((e) => {
       // Payer adds full amount
       bal[e.payerId] += e.amountHKD;
 
@@ -849,7 +933,7 @@ function ExpensesPageContent() {
     });
 
     return bal;
-  }, [data]);
+  }, [data, optimisticExpenses]);
 
   // 計算還款建議 (Settlement Plan)
   const settlements = useMemo(() => {
@@ -877,7 +961,7 @@ function ExpensesPageContent() {
     creditors.sort((a, b) => b.amount - a.amount);
 
     // 生成還款建議
-    const transactions: Array<{ from: string; to: string; amount: number }> = [];
+    const transactions: Array<{ from: string; to: string; fromId: string; toId: string; amount: number }> = [];
     let i = 0;
     let j = 0;
 
@@ -889,6 +973,8 @@ function ExpensesPageContent() {
       transactions.push({
         from: debtor.name,
         to: creditor.name,
+        fromId: debtor.id,
+        toId: creditor.id,
         amount: payment,
       });
 
@@ -907,8 +993,8 @@ function ExpensesPageContent() {
     if (!data) return [];
 
     const filtered = categoryFilter
-      ? data.expenses.filter(e => e.category === categoryFilter)
-      : data.expenses;
+      ? optimisticExpenses.filter(e => e.category === categoryFilter)
+      : optimisticExpenses;
 
     // Group expenses by date
     const groups = filtered.reduce((acc, expense) => {
@@ -918,7 +1004,7 @@ function ExpensesPageContent() {
       }
       acc[date].push(expense);
       return acc;
-    }, {} as Record<string, typeof data.expenses>);
+    }, {} as Record<string, typeof optimisticExpenses>);
 
     // Convert to array and sort by date (newest first)
     const sortedGroups = Object.entries(groups)
@@ -930,7 +1016,7 @@ function ExpensesPageContent() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return sortedGroups;
-  }, [data, categoryFilter]);
+  }, [data, optimisticExpenses, categoryFilter]);
 
   // Multi-date expansion enabled - users can expand multiple dates simultaneously
   // No auto-expand logic to allow full collapse
@@ -1380,14 +1466,14 @@ function ExpensesPageContent() {
               <div className="text-blue-200 text-sm mb-1">{t.totalExpense}</div>
               <div className="text-4xl font-extrabold text-white tracking-tight">
                   <span className="text-blue-200/90 text-2xl mr-1">HKD</span>
-                  {data.expenses.reduce((s, e) => s + e.amountHKD, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                  {optimisticExpenses.reduce((s, e) => s + e.amountHKD, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
               </div>
               {/* Per-person average + record count, or empty hint */}
-              {data.members.length > 0 && data.expenses.length > 0 ? (
+              {data.members.length > 0 && optimisticExpenses.length > 0 ? (
                 <div className="flex items-center gap-2 mt-2 text-sm text-blue-100/90">
-                  <span>人均 ${(data.expenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}</span>
+                  <span>人均 ${(optimisticExpenses.reduce((s, e) => s + e.amountHKD, 0) / data.members.length).toFixed(1)}</span>
                   <span className="text-blue-200/40">·</span>
-                  <span>{data.expenses.length} 筆記錄</span>
+                  <span>{optimisticExpenses.length} 筆記錄</span>
                 </div>
               ) : (
                 <div className="mt-2 text-sm text-blue-100/80">
@@ -1396,15 +1482,15 @@ function ExpensesPageContent() {
               )}
 
               {/* Rainbow Proportion Bar + Category Legend */}
-              {data.expenses.length > 0 && (() => {
-                const total = data.expenses.reduce((s, e) => s + e.amountHKD, 0);
+              {optimisticExpenses.length > 0 && (() => {
+                const total = optimisticExpenses.reduce((s, e) => s + e.amountHKD, 0);
                 if (total === 0) return null;
 
                 const categoryTotals = CATEGORIES.map(cat => ({
                   id: cat.id,
                   label: cat.label,
                   icon: cat.icon,
-                  amount: data.expenses
+                  amount: optimisticExpenses
                     .filter(e => e.category === cat.id)
                     .reduce((s, e) => s + e.amountHKD, 0),
                 })).filter(c => c.amount > 0);
@@ -1889,7 +1975,7 @@ function ExpensesPageContent() {
           </div>
 
           {/* Balances Section - hide when no expenses */}
-          {data.expenses.length > 0 && (
+          {optimisticExpenses.length > 0 && (
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
             <button
               onClick={() => setBalancesExpanded(!balancesExpanded)}
@@ -1909,12 +1995,12 @@ function ExpensesPageContent() {
                   const memberIdx = data.members.findIndex(m => m.id === id);
 
                   // Calculate 總墊支 (Total Paid)
-                  const totalPaid = data.expenses
+                  const totalPaid = optimisticExpenses
                     .filter(e => e.payerId === id)
                     .reduce((sum, e) => sum + e.amountHKD, 0);
 
                   // Calculate 總消費 (Total Consumed)
-                  const totalConsumed = data.expenses
+                  const totalConsumed = optimisticExpenses
                     .filter(e => e.participants.some(p => {
                       const memberId = typeof p === 'string' ? p : p.id;
                       return memberId === id;
@@ -1984,7 +2070,7 @@ function ExpensesPageContent() {
           )}
 
           {/* Settlement Plan Section - hide when no expenses */}
-          {data.expenses.length > 0 && (
+          {optimisticExpenses.length > 0 && (
           <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
             <button
               onClick={() => setSettlementsExpanded(!settlementsExpanded)}
@@ -2006,10 +2092,9 @@ function ExpensesPageContent() {
                 ) : (
                   <div className="space-y-2">
                     {settlements.map((s, idx) => {
-                      const fromMember = data.members.find(m => m.name === s.from);
-                      const toMember = data.members.find(m => m.name === s.to);
-                      const fromIdx = fromMember ? data.members.indexOf(fromMember) : 0;
-                      const toIdx = toMember ? data.members.indexOf(toMember) : 0;
+                      // 用 id 配對（修正：之前靠同名配對，兩個同名成員會顯示錯誤頭像）
+                      const fromIdx = Math.max(0, data.members.findIndex(m => m.id === s.fromId));
+                      const toIdx = Math.max(0, data.members.findIndex(m => m.id === s.toId));
                       const settlementKey = `${s.from}→${s.to}@${s.amount.toFixed(1)}`;
                       const isPaid = paidSettlements.has(settlementKey);
                       const togglePaid = () => {
