@@ -1,13 +1,24 @@
 "use server";
 
+import { randomInt } from "crypto";
 import { query, getClient } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import {
+  parseOrThrow,
+  createTripSchema,
+  addExpenseSchema,
+  updateExpenseSchema,
+  renameTripSchema,
+  tripCodeSchema,
+} from "@/lib/validation";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
+// 用加密級亂數生成旅程碼（取代 Math.random，避免可預測 / 被枚舉）
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   return code;
 }
@@ -15,19 +26,13 @@ function generateCode(): string {
 // Fix #1: Removed post-COMMIT verify logic that could cause double-ROLLBACK
 // Fix #10: Added server-side input sanitization
 export async function createTrip(name: string, memberNames: string[]) {
-  // Server-side validation (#10)
-  const trimmedName = name.trim();
-  if (!trimmedName || trimmedName.length > 50) {
-    throw new Error("Invalid trip name");
-  }
+  await enforceRateLimit("createTrip", 20, 60_000);
 
-  const trimmedMembers = memberNames.map(n => n.trim()).filter(Boolean);
-  if (trimmedMembers.length < 2) {
-    throw new Error("At least 2 members required");
-  }
-  if (trimmedMembers.some(m => m.length > 20)) {
-    throw new Error("Member name too long");
-  }
+  // 邊界驗證（Zod）：先過濾空白成員，再驗證
+  const filteredMembers = memberNames.map((n) => n.trim()).filter(Boolean);
+  const input = parseOrThrow(createTripSchema, { name, memberNames: filteredMembers });
+  const trimmedName = input.name;
+  const trimmedMembers = input.memberNames;
 
   const client = await getClient();
   try {
@@ -75,9 +80,16 @@ export async function createTrip(name: string, memberNames: string[]) {
 
 // Fix #5: Batch query for participants instead of N+1
 export async function getTripByCode(code: string) {
+  await enforceRateLimit("getTripByCode", 200, 60_000);
+
+  // 無效格式直接當「搵唔到」，唔好 throw（保持友善 UX）
+  const parsed = tripCodeSchema.safeParse(code);
+  if (!parsed.success) return null;
+  const validCode = parsed.data;
+
   const tripResult = await query(
     "SELECT id, name, trip_code FROM trips WHERE trip_code = $1",
-    [code]
+    [validCode]
   );
 
   if (tripResult.rows.length === 0) return null;
@@ -188,18 +200,8 @@ export async function addExpense(payload: {
   originalAmount?: number;
   customSplits?: Record<string, string>;
 }) {
-  // Boundary validation: reject negative amounts and invalid totals before touching DB
-  if (payload.amountHKD <= 0 || !isFinite(payload.amountHKD)) {
-    throw new Error("Invalid expense amount");
-  }
-  if (payload.customSplits) {
-    for (const v of Object.values(payload.customSplits)) {
-      const n = parseFloat(v);
-      if (!isFinite(n) || n < 0) {
-        throw new Error("Invalid split amount");
-      }
-    }
-  }
+  await enforceRateLimit("mutate", 120, 60_000);
+  parseOrThrow(addExpenseSchema, payload);
 
   const client = await getClient();
   try {
@@ -213,6 +215,21 @@ export async function addExpense(payload: {
     if (tripResult.rows.length === 0) throw new Error("Trip not found");
 
     const tripId = tripResult.rows[0].id;
+
+    // 驗證付款人 + 分擔者都屬於呢個旅程（安全：防止跨 trip 注入 member id）
+    const memberIds = Array.from(new Set([payload.payerId, ...payload.participantIds]));
+    const memberCheck = await client.query<{ id: string }>(
+      "SELECT id FROM members WHERE trip_id = $1 AND id = ANY($2)",
+      [tripId, memberIds]
+    );
+    const validIds = new Set(memberCheck.rows.map((r) => r.id));
+    if (
+      !validIds.has(payload.payerId) ||
+      payload.participantIds.some((id) => !validIds.has(id))
+    ) {
+      throw new Error("付款人或分擔者唔屬於呢個旅程");
+    }
+
     const cents = Math.round(payload.amountHKD * 100);
     const originalCents = payload.originalAmount
       ? Math.round(payload.originalAmount * 100)
@@ -263,6 +280,8 @@ export async function addExpense(payload: {
 
 // Fix #4: Added transaction and ownership check (consistent with updateExpense)
 export async function deleteExpense(code: string, expenseId: string) {
+  await enforceRateLimit("mutate", 120, 60_000);
+
   const client = await getClient();
   try {
     await client.query("BEGIN");
@@ -300,16 +319,15 @@ export async function deleteExpense(code: string, expenseId: string) {
 }
 
 export async function renameTrip(code: string, newName: string) {
-  const trimmed = newName.trim();
-  if (!trimmed || trimmed.length > 50) {
-    throw new Error("Invalid trip name");
-  }
+  await enforceRateLimit("mutate", 120, 60_000);
+  const input = parseOrThrow(renameTripSchema, { code, newName });
+  const trimmed = input.newName;
 
   const client = await getClient();
   try {
     const result = await client.query(
       "UPDATE trips SET name = $1 WHERE trip_code = $2",
-      [trimmed, code]
+      [trimmed, input.code]
     );
     if (result.rowCount === 0) {
       throw new Error("Trip not found");
@@ -334,18 +352,8 @@ export async function updateExpense(payload: {
   originalAmount?: number;
   customSplits?: Record<string, string>;
 }) {
-  // Boundary validation: reject negative amounts and invalid totals before touching DB
-  if (payload.amountHKD <= 0 || !isFinite(payload.amountHKD)) {
-    throw new Error("Invalid expense amount");
-  }
-  if (payload.customSplits) {
-    for (const v of Object.values(payload.customSplits)) {
-      const n = parseFloat(v);
-      if (!isFinite(n) || n < 0) {
-        throw new Error("Invalid split amount");
-      }
-    }
-  }
+  await enforceRateLimit("mutate", 120, 60_000);
+  parseOrThrow(updateExpenseSchema, payload);
 
   const client = await getClient();
   try {
@@ -368,6 +376,20 @@ export async function updateExpense(payload: {
     );
     if (expenseCheck.rows.length === 0) {
       throw new Error("Expense not found or does not belong to this trip");
+    }
+
+    // 2b. 驗證付款人 + 分擔者都屬於呢個旅程（安全：防止跨 trip 注入 member id）
+    const memberIds = Array.from(new Set([payload.payerId, ...payload.participantIds]));
+    const memberCheck = await client.query<{ id: string }>(
+      "SELECT id FROM members WHERE trip_id = $1 AND id = ANY($2)",
+      [tripId, memberIds]
+    );
+    const validIds = new Set(memberCheck.rows.map((r) => r.id));
+    if (
+      !validIds.has(payload.payerId) ||
+      payload.participantIds.some((id) => !validIds.has(id))
+    ) {
+      throw new Error("付款人或分擔者唔屬於呢個旅程");
     }
 
     // 3. 更新 expenses 表
