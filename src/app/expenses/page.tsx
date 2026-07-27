@@ -1181,48 +1181,57 @@ function ExpensesPageContent() {
             setCategoryFilter={setCategoryFilter}
           />
 
-          {/* Action Buttons Row - Share is the primary action here, rest are secondary */}
-          <div className="grid grid-cols-5 gap-2 mb-6">
+          {/* Action Buttons Row - Share is the primary action, rest live in a 更多 overflow menu */}
+          <div className="flex items-stretch gap-2 mb-6">
             <button
               onClick={handleShareLink}
-              className="h-11 flex items-center justify-center bg-blue-600/20 rounded-xl text-blue-300 hover:bg-blue-600/30 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="flex-grow min-h-11 h-11 flex items-center justify-center gap-2 bg-blue-600 rounded-xl text-white font-bold hover:bg-blue-500 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
               aria-label="分享旅程連結，任何人有連結都可以睇同編輯"
-              title="分享旅程"
             >
               <Share2 className="w-[18px] h-[18px]" />
+              分享旅程
             </button>
-            <button
-              onClick={handleExportExcel}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              aria-label="匯出為 Excel 文件"
-              title="匯出 Excel"
-            >
-              <FileSpreadsheet className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              onClick={() => setShowFavoritesModal(true)}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              aria-label="如何收藏此 App 到主畫面"
-              title="收藏 App"
-            >
-              <Star className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              onClick={() => router.push('/expenses')}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              aria-label="建立新旅程"
-              title="新旅程"
-            >
-              <FolderPlus className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              aria-label="重新載入頁面"
-              title="重新載入"
-            >
-              <RotateCw className="w-[18px] h-[18px]" />
-            </button>
+            <details className="relative">
+              <summary
+                className="list-none [&::-webkit-details-marker]:hidden cursor-pointer min-w-11 min-h-11 h-11 px-4 flex items-center justify-center gap-1 bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="更多操作"
+              >
+                更多
+                <ChevronDown className="w-4 h-4" aria-hidden="true" />
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-gray-800 bg-[#1c1c1e] shadow-lg overflow-hidden">
+                <button
+                  onClick={(e) => {
+                    handleExportExcel();
+                    e.currentTarget.closest('details')?.removeAttribute('open');
+                  }}
+                  className="w-full min-h-11 h-11 px-4 flex items-center gap-3 text-sm text-gray-200 hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+                >
+                  <FileSpreadsheet className="w-[18px] h-[18px]" />
+                  匯出 Excel
+                </button>
+                <button
+                  onClick={(e) => {
+                    setShowFavoritesModal(true);
+                    e.currentTarget.closest('details')?.removeAttribute('open');
+                  }}
+                  className="w-full min-h-11 h-11 px-4 flex items-center gap-3 text-sm text-gray-200 hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+                >
+                  <Star className="w-[18px] h-[18px]" />
+                  收藏 App
+                </button>
+                <button
+                  onClick={(e) => {
+                    router.push('/expenses');
+                    e.currentTarget.closest('details')?.removeAttribute('open');
+                  }}
+                  className="w-full min-h-11 h-11 px-4 flex items-center gap-3 text-sm text-gray-200 hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+                >
+                  <FolderPlus className="w-[18px] h-[18px]" />
+                  新旅程
+                </button>
+              </div>
+            </details>
           </div>
 
           {/* Add Expense Form - Moved to top */}
