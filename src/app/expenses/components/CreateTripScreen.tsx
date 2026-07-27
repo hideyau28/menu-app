@@ -53,6 +53,27 @@ export function CreateTripScreen({
             <p className="text-gray-500 text-sm mt-2">輕鬆分帳，旅途無憂</p>
           </div>
 
+          {/* 首次使用者：三步玩法簡介（有最近旅程就唔再顯示，減少雜訊） */}
+          {recentTrips.length === 0 && (
+            <div className="bg-[#111827]/60 rounded-2xl p-4 mb-6 border border-blue-900/40">
+              <div className="text-sm font-bold text-blue-200 mb-3">🚀 三步就開始</div>
+              <ol className="space-y-2.5">
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-600/30 text-blue-200 text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">1</span>
+                  <span className="text-sm text-gray-300">下面寫低旅程名，撳「開始旅程」</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-600/30 text-blue-200 text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">2</span>
+                  <span className="text-sm text-gray-300">加入同行成員（最少 2 位）</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-600/30 text-blue-200 text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">3</span>
+                  <span className="text-sm text-gray-300">記低第一筆使費，自動幫大家計數</span>
+                </li>
+              </ol>
+            </div>
+          )}
+
           {/* #1: Join existing trip */}
           <div className="bg-[#1c1c1e] rounded-2xl p-4 mb-6 border border-gray-800">
             <div className="text-sm text-gray-400 mb-2">🔗 加入旅程</div>
@@ -68,7 +89,7 @@ export function CreateTripScreen({
               />
               <button
                 onClick={onJoin}
-                className="px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
+                className="min-h-11 px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 加入
               </button>
@@ -179,13 +200,17 @@ export function CreateTripScreen({
           </div>
 
           <div className="flex gap-2">
-              <button onClick={() => setMemberNames([...memberNames, ""])} className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-gray-400">
+              <button
+                onClick={() => setMemberNames([...memberNames, ""])}
+                className="min-w-11 min-h-11 px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                aria-label="新增一位成員"
+              >
                   +
               </button>
               <button
                 onClick={onCreate}
                 disabled={submitting}
-                className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 min-h-11 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 建立中...</> : '🚀 開始旅程'}
               </button>

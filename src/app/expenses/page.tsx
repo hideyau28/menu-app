@@ -19,6 +19,7 @@ import {
   TOAST_DURATION,
   getAvatarText,
 } from "./constants";
+import { buildTripShareData, copyTextToClipboard } from "./shareUtils";
 import { TripLoader } from "./components/TripLoader";
 import { CreateTripScreen } from "./components/CreateTripScreen";
 import { BalancesSection } from "./components/BalancesSection";
@@ -103,27 +104,28 @@ function ExpensesPageContent() {
 
   // Share Link Handler
   const handleShareLink = async () => {
-    if (typeof window !== "undefined") {
-      // Try Web Share API first (mobile)
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: data?.name || '旅程記帳',
-            text: '一起來記帳吧！by @midlife_ai_hk',
-            url: window.location.href,
-          });
-          showToast("已分享");
-          return;
-        } catch (err) {
-          // User cancelled or share failed, fall through to clipboard
-          if ((err as Error).name === 'AbortError') return; // User cancelled
-        }
-      }
+    if (typeof window === "undefined") return;
+    const shareData = buildTripShareData(data?.name, window.location.href);
 
-      // Fallback to clipboard
-      navigator.clipboard.writeText(window.location.href)
-        .then(() => showToast("連結已複製"))
-        .catch(() => showToast("複製失敗", "error"));
+    // Try Web Share API first (mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        showToast("已分享");
+        return;
+      } catch (err) {
+        // 用戶取消分享 -> 靜默處理，唔使 fallback 都唔使提示
+        if ((err as Error)?.name === 'AbortError') return;
+        // 其他分享失敗（例如權限被拒）-> 跌落去用複製連結 fallback
+      }
+    }
+
+    // Fallback to clipboard (永遠唔會 throw / unhandled rejection)
+    const copied = await copyTextToClipboard(shareData.url);
+    if (copied) {
+      showToast("連結已複製，貼俾同行朋友啦");
+    } else {
+      showToast("複製失敗，請手動複製網址", "error");
     }
   };
 
@@ -1117,20 +1119,21 @@ function ExpensesPageContent() {
                 {language === 'zh' ? 'EN' : '中'}
               </button>
             </div>
-            {/* Trip code chip with inline copy + share */}
+            {/* Trip code chip with inline copy */}
             <div className="inline-flex items-center gap-1 bg-gray-900/60 border border-gray-800 rounded-full pl-3 pr-1 py-1">
               <span className="font-mono text-xs tracking-widest text-gray-300">{data.code}</span>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(data.code)
-                    .then(() => {
-                      setCodeCopied(true);
-                      showToast("旅程碼已複製");
-                      setTimeout(() => setCodeCopied(false), 1500);
-                    })
-                    .catch(() => showToast("複製失敗，請手動 select", "error"));
+                onClick={async () => {
+                  const copied = await copyTextToClipboard(data.code);
+                  if (copied) {
+                    setCodeCopied(true);
+                    showToast("旅程碼已複製");
+                    setTimeout(() => setCodeCopied(false), 1500);
+                  } else {
+                    showToast("複製失敗，請手動 select", "error");
+                  }
                 }}
-                className={`ml-1 w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
+                className={`ml-1 min-w-11 min-h-11 flex items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                   codeCopied
                     ? 'text-green-400 bg-green-500/15'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -1140,15 +1143,11 @@ function ExpensesPageContent() {
               >
                 {codeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
-              <button
-                onClick={handleShareLink}
-                className="w-7 h-7 flex items-center justify-center rounded-full text-blue-300 hover:text-white hover:bg-blue-600/40 transition-colors"
-                aria-label="分享旅程連結"
-                title="分享連結"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-              </button>
             </div>
+            {/* 分享權限提示：講清楚有連結嘅人都入到嚟 */}
+            <p className="mt-1.5 text-[11px] text-gray-500">
+              🔓 有呢個連結嘅人，都可以睇同編輯呢個旅程
+            </p>
           </div>
 
           {/* Favorites Modal */}
@@ -1164,11 +1163,19 @@ function ExpensesPageContent() {
             setCategoryFilter={setCategoryFilter}
           />
 
-          {/* Action Buttons Row - Secondary actions after total */}
-          <div className="grid grid-cols-4 gap-2 mb-6">
+          {/* Action Buttons Row - Share is the primary action here, rest are secondary */}
+          <div className="grid grid-cols-5 gap-2 mb-6">
+            <button
+              onClick={handleShareLink}
+              className="h-11 flex items-center justify-center bg-blue-600/20 rounded-xl text-blue-300 hover:bg-blue-600/30 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              aria-label="分享旅程連結，任何人有連結都可以睇同編輯"
+              title="分享旅程"
+            >
+              <Share2 className="w-[18px] h-[18px]" />
+            </button>
             <button
               onClick={handleExportExcel}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-label="匯出為 Excel 文件"
               title="匯出 Excel"
             >
@@ -1176,7 +1183,7 @@ function ExpensesPageContent() {
             </button>
             <button
               onClick={() => setShowFavoritesModal(true)}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-label="如何收藏此 App 到主畫面"
               title="收藏 App"
             >
@@ -1184,7 +1191,7 @@ function ExpensesPageContent() {
             </button>
             <button
               onClick={() => router.push('/expenses')}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-label="建立新旅程"
               title="新旅程"
             >
@@ -1192,7 +1199,7 @@ function ExpensesPageContent() {
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95"
+              className="h-11 flex items-center justify-center bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-label="重新載入頁面"
               title="重新載入"
             >
