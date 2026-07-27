@@ -30,15 +30,41 @@ export function SettlementSection({
 
   const panelId = "settlement-section-panel";
 
+  const paidCount = settlements.filter((s) =>
+    paidSettlements.has(`${s.from}→${s.to}@${s.amount.toFixed(1)}`)
+  ).length;
+  const totalCount = settlements.length;
+  const statusText =
+    totalCount === 0
+      ? '全部已平數'
+      : paidCount === totalCount
+        ? '全部已平數'
+        : paidCount === 0
+          ? `待過數 ${totalCount} 次`
+          : `已付 ${paidCount}/${totalCount}`;
+
   return (
     <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
       <button
         onClick={onToggle}
         aria-expanded={expanded}
         aria-controls={panelId}
-        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+        className="w-full min-h-11 p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
       >
-        <h3 className="font-bold text-gray-300">{t.settlements}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-bold text-gray-300">{t.settlements}</h3>
+          {statusText && (
+            <span
+              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                paidCount === totalCount
+                  ? 'bg-green-500/15 text-green-300'
+                  : 'bg-yellow-500/15 text-yellow-300'
+              }`}
+            >
+              {statusText}
+            </span>
+          )}
+        </div>
         <ChevronDown
           className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
         />

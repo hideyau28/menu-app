@@ -1173,6 +1173,19 @@ function ExpensesPageContent() {
             <FavoritesModal onClose={() => setShowFavoritesModal(false)} />
           )}
 
+          {/* Settlement Plan Section - hide when no expenses */}
+          {optimisticExpenses.length > 0 && (
+            <SettlementSection
+              settlements={settlements}
+              members={data.members}
+              tripCode={data.code}
+              paidSettlements={paidSettlements}
+              setPaidSettlements={setPaidSettlements}
+              expanded={settlementsExpanded}
+              onToggle={() => setSettlementsExpanded(!settlementsExpanded)}
+            />
+          )}
+
           {/* Total Card - Premium Gradient */}
           <TotalCard
             expenses={optimisticExpenses}
@@ -1635,19 +1648,6 @@ function ExpensesPageContent() {
               balances={balances}
               expanded={balancesExpanded}
               onToggle={() => setBalancesExpanded(!balancesExpanded)}
-            />
-          )}
-
-          {/* Settlement Plan Section - hide when no expenses */}
-          {optimisticExpenses.length > 0 && (
-            <SettlementSection
-              settlements={settlements}
-              members={data.members}
-              tripCode={data.code}
-              paidSettlements={paidSettlements}
-              setPaidSettlements={setPaidSettlements}
-              expanded={settlementsExpanded}
-              onToggle={() => setSettlementsExpanded(!settlementsExpanded)}
             />
           )}
 
