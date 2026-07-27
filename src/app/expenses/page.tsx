@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState, useRef, useOptimistic, useTrans
 import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense, renameTrip } from "./actions";
 import { toast, Toaster } from 'sonner';
-import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2 } from 'lucide-react';
+import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Pencil } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { enUS, zhTW } from 'date-fns/locale';
@@ -1129,9 +1129,19 @@ function ExpensesPageContent() {
                   {data.name}
                 </h1>
               )}
+              {!nameEditing && (
+                <button
+                  onClick={() => { setNameDraft(data.name); setNameEditing(true); }}
+                  className="flex-shrink-0 mt-1 h-11 w-11 flex items-center justify-center rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  aria-label={language === 'zh' ? '改旅程名稱' : 'Rename trip'}
+                  title={language === 'zh' ? '改旅程名稱' : 'Rename trip'}
+                >
+                  <Pencil className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
               <button
                 onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 hover:bg-gray-800 transition-colors flex-shrink-0 mt-1"
+                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 min-h-11 min-w-11 hover:bg-gray-800 transition-colors flex-shrink-0 mt-1"
                 aria-label={language === 'zh' ? '切換到英文' : '切換到中文'}
               >
                 {language === 'zh' ? 'EN' : '中'}
@@ -1201,10 +1211,10 @@ function ExpensesPageContent() {
                       key={c.id}
                       onClick={() => setCategory(c.id)}
                       aria-pressed={isSelected}
-                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center active:scale-95 ${
+                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black motion-reduce:transition-none motion-reduce:active:scale-100 ${
                         isSelected
                           ? 'font-bold scale-105 shadow-md'
-                          : 'hover:scale-105 hover:bg-white/5'
+                          : 'hover:scale-105 motion-reduce:hover:scale-100 hover:bg-white/5'
                       }`}
                       style={
                         isSelected
@@ -1213,7 +1223,7 @@ function ExpensesPageContent() {
                       }
                     >
                       <span className="text-lg">{c.icon}</span>
-                      <span className="text-[11px] leading-tight mt-1 px-1 text-center">
+                      <span className="text-xs leading-tight mt-1 px-1 text-center">
                         {(() => { const v = t[c.id as keyof typeof t]; return typeof v === 'string' ? v : c.label; })()}
                       </span>
                     </button>
@@ -1223,8 +1233,8 @@ function ExpensesPageContent() {
 
              {/* Currency + Amount (primary row) */}
              <div className="grid grid-cols-2 gap-3">
-               <label className="contents">
-                 <span className="sr-only">幣種</span>
+               <label className="flex flex-col gap-1">
+                 <span className="text-xs font-medium text-gray-400">{t.currency}</span>
                  <select
                    value={currency}
                    onChange={(e) => {
@@ -1234,7 +1244,7 @@ function ExpensesPageContent() {
                        setCustomCurrency('');
                      }
                    }}
-                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
                    style={{
                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                      backgroundPosition: 'right 0.5rem center',
@@ -1250,15 +1260,17 @@ function ExpensesPageContent() {
                  </select>
                </label>
 
-               <label className="contents">
-                 <span className="sr-only">金額</span>
+               <label className="flex flex-col gap-1">
+                 <span className="text-xs font-medium text-gray-400">{t.amount}</span>
                  <input
                    type="number"
                    step="0.01"
+                   inputMode="decimal"
+                   autoComplete="off"
                    placeholder={`${t.amountPh} (${getFinalCurrency()})`}
                    value={amount}
                    onChange={(e) => setAmount(e.target.value)}
-                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
                  />
                </label>
              </div>
@@ -1281,7 +1293,7 @@ function ExpensesPageContent() {
                (currency === 'OTHER' && customCurrency.trim())) && (
                <div className="bg-black rounded-xl border border-gray-800 p-2 space-y-1">
                  <div className="flex items-center gap-2">
-                   <span className="text-[11px] font-mono font-bold text-gray-300 bg-gray-800/80 px-2 py-1 rounded-md whitespace-nowrap">
+                   <span className="text-xs font-mono font-bold text-gray-300 bg-gray-800/80 px-2 py-1 rounded-md whitespace-nowrap">
                      {getFinalCurrency()}→HKD
                    </span>
                    <input
@@ -1319,7 +1331,7 @@ function ExpensesPageContent() {
 
              {/* 付款人 (default view) */}
              <div className="space-y-2">
-                  <span className="text-xs text-gray-500">{t.whoPaid}:</span>
+                  <span className="text-xs text-gray-400">{t.whoPaid}:</span>
                   <div className="flex flex-wrap gap-3 py-3 px-1">
                     {data.members.map((m, idx) => (
                       <button
@@ -1403,7 +1415,7 @@ function ExpensesPageContent() {
                 {/* 誰分擔 - Avatar Style with 全選/全不選 */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{t.whoSplit}:</span>
+                    <span className="text-xs text-gray-400">{t.whoSplit}:</span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setParticipantIds(data.members.map(m => m.id))}
@@ -1457,7 +1469,7 @@ function ExpensesPageContent() {
                 {/* Split Mode Toggle (segmented control) */}
                 {participantIds.length > 0 && (
                   <div className="flex items-center gap-2 pt-2">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">{t.splitMode}:</span>
+                    <span className="text-xs text-gray-400 whitespace-nowrap">{t.splitMode}:</span>
                     <div className="flex bg-gray-900 border border-gray-800 rounded-full p-0.5" role="group" aria-label={t.splitMode}>
                       <button
                         onClick={() => {

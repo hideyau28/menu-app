@@ -36,7 +36,7 @@ export function CreateTripScreen({
   submitting,
 }: CreateTripScreenProps) {
   return (
-    <div className="min-h-screen bg-black p-4 pt-12 text-white pb-20 relative overflow-hidden">
+    <div className="min-h-screen bg-black p-4 pt-8 text-white pb-20 relative overflow-hidden">
       {/* Background decorative orbs */}
       <div className="fixed top-20 -left-20 w-60 h-60 rounded-full opacity-10 pointer-events-none"
         style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
@@ -45,12 +45,15 @@ export function CreateTripScreen({
         style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)' }}
       />
       <Toaster position="bottom-center" theme="dark" richColors expand={false} />
-      <div className="max-w-md mx-auto relative">
+      <div className="max-w-md md:max-w-4xl mx-auto relative">
+        <div className="md:grid md:grid-cols-2 md:gap-10 md:items-start">
+          {/* Left column: brand + onboarding teaching */}
+          <div className="md:pt-6">
           {/* Header */}
-          <div className="text-center mb-8">
-            <div className="text-6xl mb-3" style={{ filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}>✈️</div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">旅程記帳</h1>
-            <p className="text-gray-500 text-sm mt-2">輕鬆分帳，旅途無憂</p>
+          <div className="text-center md:text-left mb-6">
+            <div className="text-5xl mb-2 md:mx-0 inline-block" style={{ filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}>✈️</div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-white">旅程記帳</h1>
+            <p className="text-gray-400 text-sm mt-2">輕鬆分帳，旅途無憂</p>
           </div>
 
           {/* 首次使用者：三步玩法簡介（有最近旅程就唔再顯示，減少雜訊） */}
@@ -73,13 +76,16 @@ export function CreateTripScreen({
               </ol>
             </div>
           )}
+          </div>
 
+          {/* Right column: join / recent / create */}
+          <div>
           {/* #1: Join existing trip */}
           <div className="bg-[#1c1c1e] rounded-2xl p-4 mb-6 border border-gray-800">
             <div className="text-sm text-gray-400 mb-2">🔗 加入旅程</div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
               <input
-                className="flex-1 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono"
+                className="w-full min-w-0 p-3 bg-black rounded-xl border border-gray-700 text-center tracking-widest uppercase font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 placeholder="輸入旅程碼"
                 aria-label="旅程碼"
                 value={joinCode}
@@ -89,7 +95,7 @@ export function CreateTripScreen({
               />
               <button
                 onClick={onJoin}
-                className="min-h-11 px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="min-h-11 flex-shrink-0 px-5 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 加入
               </button>
@@ -113,7 +119,7 @@ export function CreateTripScreen({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="font-medium truncate">{trip.name}</div>
-                        <div className="text-xs text-gray-500 font-mono">{trip.code}</div>
+                        <div className="text-xs text-gray-400 font-mono">{trip.code}</div>
                       </div>
                       <div className="text-xs text-gray-400 flex-shrink-0 ml-2">{trip.date}</div>
                     </button>
@@ -190,7 +196,8 @@ export function CreateTripScreen({
                   {memberNames.length > 2 && (
                       <button
                         onClick={() => setMemberNames(memberNames.filter((_, idx) => idx !== i))}
-                        className="px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-red-400"
+                        className="min-w-11 px-4 py-3 bg-[#1c1c1e] rounded-xl border border-gray-800 text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        aria-label={`移除成員 ${i + 1}`}
                       >
                         ✕
                       </button>
@@ -215,6 +222,8 @@ export function CreateTripScreen({
                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 建立中...</> : '🚀 開始旅程'}
               </button>
           </div>
+          </div>
+        </div>
 
           {/* Footer Branding */}
           <div className="mt-10 text-center">
