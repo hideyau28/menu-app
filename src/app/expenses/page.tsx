@@ -79,6 +79,7 @@ function ExpensesPageContent() {
   const [recordsExpanded, setRecordsExpanded] = useState(true);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [retryingCode, setRetryingCode] = useState(false);
   const [editFlash, setEditFlash] = useState(false);
   const [paidSettlements, setPaidSettlements] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -988,6 +989,17 @@ function ExpensesPageContent() {
     router.push(`/expenses?code=${trimmed}`);
   };
 
+  // 情況 B 用：有 code 但搵唔到旅程時「重試」，用返 reloadTrip 靜默 refetch，唔使成頁 reload
+  const handleRetryCode = async () => {
+    if (retryingCode) return;
+    setRetryingCode(true);
+    try {
+      await reloadTrip();
+    } finally {
+      setRetryingCode(false);
+    }
+  };
+
   // --- 畫面渲染邏輯 ---
 
   // 情況 A: 正在跟 Server 拿資料
@@ -995,27 +1007,33 @@ function ExpensesPageContent() {
     return <TripLoader />;
   }
 
-  // 情況 B: 有 code 但找不到資料 -> 顯示錯誤 (Force English)
+  // 情況 B: 有 code 但找不到資料 -> 顯示錯誤
   if (code && !data) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center px-4">
-            <div className="mb-4 flex justify-center">
-              <RotateCw className="w-12 h-12 text-blue-500" />
-            </div>
-            <div className="text-sm text-gray-400 mb-6">Code: {code}</div>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-8 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors font-medium"
-            >
-                Refresh Page
-            </button>
-            <button
-              onClick={() => router.push('/expenses')}
-              className="mt-4 px-8 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all block w-full max-w-xs mx-auto"
-            >
-                Create New Trip
-            </button>
+      <div className="min-h-[100dvh] bg-black text-white flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="mb-4 flex justify-center">
+            <RotateCw className="w-12 h-12 text-blue-500" />
+          </div>
+          <h1 className="text-lg font-semibold mb-2">暫時開唔到呢個旅程</h1>
+          <p className="text-sm text-gray-400 mb-4">
+            可能係連結有誤，或者網絡暫時有問題。重試唔會刪除任何資料。
+          </p>
+          <div className="text-sm text-gray-500 mb-6">旅程碼：{code}</div>
+          <button
+            onClick={handleRetryCode}
+            disabled={retryingCode}
+            className="min-h-[44px] w-full px-8 py-3 bg-blue-600 rounded-xl hover:bg-blue-500 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black flex items-center justify-center gap-2"
+          >
+            {retryingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            再試一次
+          </button>
+          <button
+            onClick={() => router.push('/expenses')}
+            className="mt-4 min-h-[44px] w-full px-8 py-3 border border-gray-600 text-gray-400 rounded-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          >
+            輸入另一個旅程碼
+          </button>
         </div>
       </div>
     );
