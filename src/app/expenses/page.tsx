@@ -274,7 +274,7 @@ function ExpensesPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingExpenseId]);
 
-  // Auto-open advanced (date+note) disclosure + flash form ring when entering edit mode
+  // Auto-open the split adjustment disclosure + flash form ring when entering edit mode
   useEffect(() => {
     if (editingExpenseId !== null) {
       setAdvancedOpen(true);
@@ -1172,6 +1172,422 @@ function ExpensesPageContent() {
           {showFavoritesModal && (
             <FavoritesModal onClose={() => setShowFavoritesModal(false)} />
           )}
+          {/* Add Expense Form - Moved to top */}
+          <div ref={formRef} className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all duration-500 ${
+            editingExpenseId
+              ? `bg-[#1a1a2e] border-yellow-600/50 ${editFlash ? 'ring-4 ring-yellow-500/60' : 'ring-1 ring-yellow-600/30'}`
+              : 'bg-[#1c1c1e] border-gray-800'
+          }`}>
+             {/* #3: Edit mode banner */}
+             {editingExpenseId && (
+               <div className="flex items-center justify-between bg-yellow-600/20 text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg -mt-1">
+                 <span>✏️ 編輯模式</span>
+                 <button onClick={handleCancelEdit} className="text-gray-400 hover:text-white">✕ 取消</button>
+               </div>
+             )}
+             {/* Quick Add heading */}
+             <div className="space-y-0.5">
+               <h2 className="text-base font-bold text-white">快速記一筆</h2>
+               <p className="text-xs text-gray-400">
+                 {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)} · {splitMode === 'equal' ? (participantIds.length === data.members.length ? '全員平均分' : `${participantIds.length} 人平均分`) : '自訂分帳'}
+               </p>
+             </div>
+             <div className="grid grid-cols-3 gap-2">
+                {CATEGORIES.map((c) => {
+                  const color = CATEGORY_COLORS[c.id] || '#6b7280';
+                  const isSelected = category === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setCategory(c.id)}
+                      aria-pressed={isSelected}
+                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center active:scale-95 ${
+                        isSelected
+                          ? 'font-bold scale-105 shadow-md'
+                          : 'hover:scale-105 hover:bg-white/5'
+                      }`}
+                      style={
+                        isSelected
+                          ? { borderColor: color, backgroundColor: color }
+                          : { borderColor: color }
+                      }
+                    >
+                      <span className="text-lg">{c.icon}</span>
+                      <span className="text-[11px] leading-tight mt-1 px-1 text-center">
+                        {(() => { const v = t[c.id as keyof typeof t]; return typeof v === 'string' ? v : c.label; })()}
+                      </span>
+                    </button>
+                  );
+                })}
+             </div>
+
+             {/* Currency + Amount (primary row) */}
+             <div className="grid grid-cols-2 gap-3">
+               <label className="contents">
+                 <span className="sr-only">幣種</span>
+                 <select
+                   value={currency}
+                   onChange={(e) => {
+                     const newCurrency = e.target.value;
+                     setCurrency(newCurrency);
+                     if (newCurrency === 'OTHER') {
+                       setCustomCurrency('');
+                     }
+                   }}
+                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                   style={{
+                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                     backgroundPosition: 'right 0.5rem center',
+                     backgroundRepeat: 'no-repeat',
+                     backgroundSize: '1.5em 1.5em',
+                   }}
+                 >
+                   {CURRENCIES.map(c => (
+                     <option key={c.code} value={c.code}>
+                       {c.flag} {c.code} {language === 'zh' && c.code === 'HKD' ? '港幣' : ''}
+                     </option>
+                   ))}
+                 </select>
+               </label>
+
+               <label className="contents">
+                 <span className="sr-only">金額</span>
+                 <input
+                   type="number"
+                   step="0.01"
+                   placeholder={`${t.amountPh} (${getFinalCurrency()})`}
+                   value={amount}
+                   onChange={(e) => setAmount(e.target.value)}
+                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                 />
+               </label>
+             </div>
+
+             {/* Custom Currency Input */}
+             {currency === 'OTHER' && (
+               <input
+                 type="text"
+                 placeholder="輸入幣種代碼 (如: SGD, MYR)"
+                 aria-label="自訂幣種代碼"
+                 value={customCurrency}
+                 onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
+                 className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-500"
+                 maxLength={5}
+               />
+             )}
+
+             {/* Exchange Rate + HKD preview (combined compact row) */}
+             {((currency !== 'HKD' && currency !== 'OTHER') ||
+               (currency === 'OTHER' && customCurrency.trim())) && (
+               <div className="bg-black rounded-xl border border-gray-800 p-2 space-y-1">
+                 <div className="flex items-center gap-2">
+                   <span className="text-[11px] font-mono font-bold text-gray-300 bg-gray-800/80 px-2 py-1 rounded-md whitespace-nowrap">
+                     {getFinalCurrency()}→HKD
+                   </span>
+                   <input
+                     type="number"
+                     step="0.000001"
+                     placeholder="0.000000"
+                     value={exchangeRates[getFinalCurrency()] || ''}
+                     onChange={(e) => {
+                       const code = getFinalCurrency();
+                       setExchangeRates(prev => ({
+                         ...prev,
+                         [code]: e.target.value,
+                       }));
+                     }}
+                     className="flex-1 min-w-0 px-2 py-1.5 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
+                     aria-label={`${getFinalCurrency()} 兌 HKD 匯率`}
+                   />
+                   <button
+                     onClick={() => fetchExchangeRate(getFinalCurrency())}
+                     disabled={fetchingRate}
+                     className="min-w-11 min-h-11 flex items-center justify-center bg-blue-600/20 text-blue-300 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50"
+                     aria-label="自動取得匯率"
+                     title="自動取得匯率"
+                   >
+                     {fetchingRate ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+                   </button>
+                 </div>
+                 {amount && calculateHKD() > 0 && (
+                   <div className="text-xs text-blue-300 text-right pr-1">
+                     ≈ HKD ${calculateHKD().toFixed(2)}
+                   </div>
+                 )}
+               </div>
+             )}
+
+             {/* 付款人 (default view) */}
+             <div className="space-y-2">
+                  <span className="text-xs text-gray-500">{t.whoPaid}:</span>
+                  <div className="flex flex-wrap gap-3 py-3 px-1">
+                    {data.members.map((m, idx) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setPayerId(m.id)}
+                        className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                          payerId === m.id
+                            ? 'border-white scale-110 shadow-lg shadow-blue-500/50'
+                            : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
+                        }`}
+                        style={{
+                          backgroundColor: getAvatarColor(idx),
+                        }}
+                        aria-label={`付款人 ${m.name}`}
+                        aria-pressed={payerId === m.id}
+                        title={m.name}
+                      >
+                        {getAvatarText(m.name)}
+                        {payerId === m.id && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center text-xs">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+             {/* 調整分帳 (collapsible advanced) */}
+             <details
+               open={advancedOpen}
+               onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+               className="bg-black rounded-xl border border-gray-800 group overflow-hidden"
+             >
+               <summary
+                 className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 min-h-[44px] py-2 flex items-center justify-between gap-2 hover:bg-gray-900/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
+                 aria-label="調整分帳"
+               >
+                 <span className="text-sm text-gray-300 font-medium flex items-center gap-2 min-w-0">
+                   ⚙️ 調整分帳
+                   <span className="text-xs text-gray-400 truncate">
+                     {splitMode === 'equal' ? (participantIds.length === data.members.length ? '全員平均分' : `${participantIds.length} 人平均分`) : '自訂分帳'} · {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)}
+                   </span>
+                 </span>
+                 <ChevronDown className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform flex-shrink-0" aria-hidden="true" />
+               </summary>
+               <div className="px-3 pb-3 pt-1 space-y-3">
+
+                {/* Date + Note (inner controls) */}
+                <details className="bg-[#1c1c1e] rounded-lg border border-gray-700 group/dn overflow-hidden">
+                  <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 min-h-[44px] flex items-center justify-between hover:bg-gray-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg">
+                    <span className="text-sm text-gray-300 truncate flex-1 min-w-0">
+                      📅 {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)}
+                      {note && <span className="text-gray-500"> · 📝 {note}</span>}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-gray-500 group-open/dn:rotate-180 transition-transform flex-shrink-0 ml-2" aria-hidden="true" />
+                  </summary>
+                  <div className="px-3 pb-3 pt-1 grid grid-cols-2 gap-3">
+                    <label className="contents">
+                      <span className="sr-only">日期</span>
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full px-3 h-[44px] bg-black rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none appearance-none text-[14px] font-medium leading-normal"
+                      />
+                    </label>
+                    <label className="contents">
+                      <span className="sr-only">備註</span>
+                      <input
+                        type="text"
+                        placeholder={t.notePh}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="w-full px-3 h-[44px] bg-black rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none text-[14px] font-medium leading-normal placeholder:text-gray-500"
+                      />
+                    </label>
+                  </div>
+                </details>
+
+                {/* 誰分擔 - Avatar Style with 全選/全不選 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">{t.whoSplit}:</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setParticipantIds(data.members.map(m => m.id))}
+                        className="min-h-11 text-xs px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
+                      >
+                        {t.selectAll}
+                      </button>
+                      <button
+                        onClick={() => setParticipantIds([])}
+                        className="min-h-11 text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                      >
+                        {t.deselectAll}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3 py-3 px-1">
+                    {data.members.map((m, idx) => {
+                      const isSelected = participantIds.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => setParticipantIds(prev =>
+                            prev.includes(m.id)
+                              ? prev.filter(p => p !== m.id)
+                              : [...prev, m.id]
+                          )}
+                          className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                            isSelected
+                              ? 'border-white ring-2 ring-offset-2 ring-offset-black ring-blue-500 scale-110 shadow-lg shadow-blue-500/50'
+                              : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
+                          }`}
+                          style={{
+                            backgroundColor: getAvatarColor(idx),
+                          }}
+                          aria-label={`分擔者 ${m.name}`}
+                          aria-pressed={isSelected}
+                          title={m.name}
+                        >
+                          {getAvatarText(m.name)}
+                          {isSelected && (
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Split Mode Toggle (segmented control) */}
+                {participantIds.length > 0 && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">{t.splitMode}:</span>
+                    <div className="flex bg-gray-900 border border-gray-800 rounded-full p-0.5" role="group" aria-label={t.splitMode}>
+                      <button
+                        onClick={() => {
+                          setSplitMode('equal');
+                          setCustomSplits({});
+                        }}
+                        aria-pressed={splitMode === 'equal'}
+                        className={`min-h-11 px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
+                          splitMode === 'equal'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        {t.equalSplit}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSplitMode('custom');
+                          const newSplits: Record<string, string> = {};
+                          participantIds.forEach(id => {
+                            newSplits[id] = '';
+                          });
+                          setCustomSplits(newSplits);
+                        }}
+                        aria-pressed={splitMode === 'custom'}
+                        className={`min-h-11 px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
+                          splitMode === 'custom'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        {t.customSplit}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Split Inputs */}
+                {splitMode === 'custom' && participantIds.length > 0 && (
+                  <div className="bg-black p-3 rounded-xl border border-gray-800 space-y-2">
+                    <div className="text-xs text-gray-400 mb-2">輸入各人分擔金額 (HKD):</div>
+                    {participantIds.map(pid => {
+                      const member = data.members.find(m => m.id === pid);
+                      if (!member) return null;
+
+                      return (
+                        <div key={pid} className="flex items-center gap-2">
+                          <span className="text-sm text-gray-300 w-20">{member.name}:</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            aria-label={`${member.name} 嘅分擔金額`}
+                            value={customSplits[pid] || ''}
+                            onChange={(e) => {
+                              setCustomSplits(prev => ({
+                                ...prev,
+                                [pid]: e.target.value,
+                              }));
+                            }}
+                            className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm"
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Validation Display */}
+                    {(() => {
+                      const total = calculateHKD();
+                      const splitTotal = Object.values(customSplits)
+                        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+                      const diff = Math.abs(total - splitTotal);
+
+                      if (total > 0 && splitTotal > 0) {
+                        return (
+                          <div className={`text-xs mt-2 ${diff <= 1 ? 'text-green-400' : 'text-red-400'}`}>
+                            已分配: ${splitTotal.toFixed(1)} / ${total.toFixed(1)}
+                            {diff > 1 && ` (差額: $${diff.toFixed(1)})`}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+               </div>
+             </details>
+
+             {(() => {
+               const missing: string[] = [];
+               if (!amount || parseFloat(amount) <= 0) missing.push('金額');
+               if (!payerId) missing.push('付款人');
+               if (participantIds.length === 0) missing.push('分擔者');
+               const finalCur = getFinalCurrency();
+               if (finalCur !== 'HKD' && !parseFloat(exchangeRates[finalCur] || '0')) missing.push('匯率');
+               return missing.length > 0 ? (
+                 <div className="text-xs text-gray-400 text-center">
+                   仲未填：<span className="text-yellow-300">{missing.join('、')}</span>
+                 </div>
+               ) : null;
+             })()}
+
+             {editingExpenseId ? (
+               <div className="space-y-2">
+                 <button
+                   onClick={handleUpdateExpense}
+                   disabled={submitting}
+                   className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                 >
+                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 更新中...</> : '更新記錄'}
+                 </button>
+                 <button
+                   onClick={handleCancelEdit}
+                   disabled={submitting}
+                   className="w-full py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
+                 >
+                   取消編輯
+                 </button>
+               </div>
+             ) : (
+               <button
+                 onClick={handleAddExpense}
+                 disabled={submitting}
+                 aria-label={language === 'zh' ? '記低呢筆' : t.addRecord}
+                 className="w-full min-h-[44px] py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+               >
+                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 新增中...</> : (language === 'zh' ? '記低呢筆' : t.addRecord)}
+               </button>
+             )}
+          </div>
 
           {/* Settlement Plan Section - hide when no expenses */}
           {optimisticExpenses.length > 0 && (
@@ -1247,398 +1663,6 @@ function ExpensesPageContent() {
             </details>
           </div>
 
-          {/* Add Expense Form - Moved to top */}
-          <div ref={formRef} className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all duration-500 ${
-            editingExpenseId
-              ? `bg-[#1a1a2e] border-yellow-600/50 ${editFlash ? 'ring-4 ring-yellow-500/60' : 'ring-1 ring-yellow-600/30'}`
-              : 'bg-[#1c1c1e] border-gray-800'
-          }`}>
-             {/* #3: Edit mode banner */}
-             {editingExpenseId && (
-               <div className="flex items-center justify-between bg-yellow-600/20 text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg -mt-1">
-                 <span>✏️ 編輯模式</span>
-                 <button onClick={handleCancelEdit} className="text-gray-400 hover:text-white">✕ 取消</button>
-               </div>
-             )}
-             <div className="grid grid-cols-3 gap-2">
-                {CATEGORIES.map((c) => {
-                  const color = CATEGORY_COLORS[c.id] || '#6b7280';
-                  const isSelected = category === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => setCategory(c.id)}
-                      aria-pressed={isSelected}
-                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center active:scale-95 ${
-                        isSelected
-                          ? 'font-bold scale-105 shadow-md'
-                          : 'hover:scale-105 hover:bg-white/5'
-                      }`}
-                      style={
-                        isSelected
-                          ? { borderColor: color, backgroundColor: color }
-                          : { borderColor: color }
-                      }
-                    >
-                      <span className="text-lg">{c.icon}</span>
-                      <span className="text-[11px] leading-tight mt-1 px-1 text-center">
-                        {(() => { const v = t[c.id as keyof typeof t]; return typeof v === 'string' ? v : c.label; })()}
-                      </span>
-                    </button>
-                  );
-                })}
-             </div>
-
-             {/* Currency + Amount (primary row) */}
-             <div className="grid grid-cols-2 gap-3">
-               <label className="contents">
-                 <span className="sr-only">幣種</span>
-                 <select
-                   value={currency}
-                   onChange={(e) => {
-                     const newCurrency = e.target.value;
-                     setCurrency(newCurrency);
-                     if (newCurrency === 'OTHER') {
-                       setCustomCurrency('');
-                     }
-                   }}
-                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
-                   style={{
-                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                     backgroundPosition: 'right 0.5rem center',
-                     backgroundRepeat: 'no-repeat',
-                     backgroundSize: '1.5em 1.5em',
-                   }}
-                 >
-                   {CURRENCIES.map(c => (
-                     <option key={c.code} value={c.code}>
-                       {c.flag} {c.code} {language === 'zh' && c.code === 'HKD' ? '港幣' : ''}
-                     </option>
-                   ))}
-                 </select>
-               </label>
-
-               <label className="contents">
-                 <span className="sr-only">金額</span>
-                 <input
-                   type="number"
-                   step="0.01"
-                   placeholder={`${t.amountPh} (${getFinalCurrency()})`}
-                   value={amount}
-                   onChange={(e) => setAmount(e.target.value)}
-                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
-                 />
-               </label>
-             </div>
-
-             {/* Date + Note (collapsible advanced) */}
-             <details
-               open={advancedOpen}
-               onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
-               className="bg-black rounded-xl border border-gray-800 group overflow-hidden"
-             >
-               <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 h-[44px] flex items-center justify-between hover:bg-gray-900/50 transition-colors">
-                 <span className="text-sm text-gray-300 truncate flex-1 min-w-0">
-                   📅 {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)}
-                   {note && <span className="text-gray-500"> · 📝 {note}</span>}
-                 </span>
-                 <ChevronDown className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform flex-shrink-0 ml-2" aria-hidden="true" />
-               </summary>
-               <div className="px-3 pb-3 pt-1 grid grid-cols-2 gap-3">
-                 <label className="contents">
-                   <span className="sr-only">日期</span>
-                   <input
-                     type="date"
-                     value={date}
-                     onChange={(e) => setDate(e.target.value)}
-                     className="w-full px-3 h-[44px] bg-[#1c1c1e] rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none appearance-none text-[14px] font-medium leading-normal"
-                   />
-                 </label>
-                 <label className="contents">
-                   <span className="sr-only">備註</span>
-                   <input
-                     type="text"
-                     placeholder={t.notePh}
-                     value={note}
-                     onChange={(e) => setNote(e.target.value)}
-                     className="w-full px-3 h-[44px] bg-[#1c1c1e] rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none text-[14px] font-medium leading-normal placeholder:text-gray-500"
-                   />
-                 </label>
-               </div>
-             </details>
-
-             {/* Custom Currency Input */}
-             {currency === 'OTHER' && (
-               <input
-                 type="text"
-                 placeholder="輸入幣種代碼 (如: SGD, MYR)"
-                 aria-label="自訂幣種代碼"
-                 value={customCurrency}
-                 onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
-                 className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-500"
-                 maxLength={5}
-               />
-             )}
-
-             {/* Exchange Rate + HKD preview (combined compact row) */}
-             {((currency !== 'HKD' && currency !== 'OTHER') ||
-               (currency === 'OTHER' && customCurrency.trim())) && (
-               <div className="bg-black rounded-xl border border-gray-800 p-2 space-y-1">
-                 <div className="flex items-center gap-2">
-                   <span className="text-[11px] font-mono font-bold text-gray-300 bg-gray-800/80 px-2 py-1 rounded-md whitespace-nowrap">
-                     {getFinalCurrency()}→HKD
-                   </span>
-                   <input
-                     type="number"
-                     step="0.000001"
-                     placeholder="0.000000"
-                     value={exchangeRates[getFinalCurrency()] || ''}
-                     onChange={(e) => {
-                       const code = getFinalCurrency();
-                       setExchangeRates(prev => ({
-                         ...prev,
-                         [code]: e.target.value,
-                       }));
-                     }}
-                     className="flex-1 min-w-0 px-2 py-1.5 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
-                     aria-label={`${getFinalCurrency()} 兌 HKD 匯率`}
-                   />
-                   <button
-                     onClick={() => fetchExchangeRate(getFinalCurrency())}
-                     disabled={fetchingRate}
-                     className="min-w-11 h-9 flex items-center justify-center bg-blue-600/20 text-blue-300 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50"
-                     aria-label="自動取得匯率"
-                     title="自動取得匯率"
-                   >
-                     {fetchingRate ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
-                   </button>
-                 </div>
-                 {amount && calculateHKD() > 0 && (
-                   <div className="text-xs text-blue-300 text-right pr-1">
-                     ≈ HKD ${calculateHKD().toFixed(2)}
-                   </div>
-                 )}
-               </div>
-             )}
-
-             <div className="space-y-3">
-                {/* 誰付錢 - Avatar Style */}
-                <div className="space-y-2">
-                  <span className="text-xs text-gray-500">{t.whoPaid}:</span>
-                  <div className="flex flex-wrap gap-3 py-3 px-1">
-                    {data.members.map((m, idx) => (
-                      <button
-                        key={m.id}
-                        onClick={() => setPayerId(m.id)}
-                        className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                          payerId === m.id
-                            ? 'border-white scale-110 shadow-lg shadow-blue-500/50'
-                            : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
-                        }`}
-                        style={{
-                          backgroundColor: getAvatarColor(idx),
-                        }}
-                        aria-label={`付款人 ${m.name}`}
-                        aria-pressed={payerId === m.id}
-                        title={m.name}
-                      >
-                        {getAvatarText(m.name)}
-                        {payerId === m.id && (
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center text-xs">
-                            ✓
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 誰分擔 - Avatar Style with 全選/全不選 */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{t.whoSplit}:</span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setParticipantIds(data.members.map(m => m.id))}
-                        className="text-xs px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
-                      >
-                        {t.selectAll}
-                      </button>
-                      <button
-                        onClick={() => setParticipantIds([])}
-                        className="text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors font-medium"
-                      >
-                        {t.deselectAll}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-3 py-3 px-1">
-                    {data.members.map((m, idx) => {
-                      const isSelected = participantIds.includes(m.id);
-                      return (
-                        <button
-                          key={m.id}
-                          onClick={() => setParticipantIds(prev =>
-                            prev.includes(m.id)
-                              ? prev.filter(p => p !== m.id)
-                              : [...prev, m.id]
-                          )}
-                          className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                            isSelected
-                              ? 'border-white ring-2 ring-offset-2 ring-offset-black ring-blue-500 scale-110 shadow-lg shadow-blue-500/50'
-                              : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
-                          }`}
-                          style={{
-                            backgroundColor: getAvatarColor(idx),
-                          }}
-                          aria-label={`分擔者 ${m.name}`}
-                          aria-pressed={isSelected}
-                          title={m.name}
-                        >
-                          {getAvatarText(m.name)}
-                          {isSelected && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Split Mode Toggle (segmented control) */}
-                {participantIds.length > 0 && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">{t.splitMode}:</span>
-                    <div className="flex bg-gray-900 border border-gray-800 rounded-full p-0.5" role="group" aria-label={t.splitMode}>
-                      <button
-                        onClick={() => {
-                          setSplitMode('equal');
-                          setCustomSplits({});
-                        }}
-                        aria-pressed={splitMode === 'equal'}
-                        className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
-                          splitMode === 'equal'
-                            ? 'bg-blue-600 text-white font-bold shadow-sm'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                      >
-                        {t.equalSplit}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSplitMode('custom');
-                          const newSplits: Record<string, string> = {};
-                          participantIds.forEach(id => {
-                            newSplits[id] = '';
-                          });
-                          setCustomSplits(newSplits);
-                        }}
-                        aria-pressed={splitMode === 'custom'}
-                        className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
-                          splitMode === 'custom'
-                            ? 'bg-blue-600 text-white font-bold shadow-sm'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                      >
-                        {t.customSplit}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Custom Split Inputs */}
-                {splitMode === 'custom' && participantIds.length > 0 && (
-                  <div className="bg-black p-3 rounded-xl border border-gray-800 space-y-2">
-                    <div className="text-xs text-gray-400 mb-2">輸入各人分擔金額 (HKD):</div>
-                    {participantIds.map(pid => {
-                      const member = data.members.find(m => m.id === pid);
-                      if (!member) return null;
-
-                      return (
-                        <div key={pid} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-300 w-20">{member.name}:</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            aria-label={`${member.name} 嘅分擔金額`}
-                            value={customSplits[pid] || ''}
-                            onChange={(e) => {
-                              setCustomSplits(prev => ({
-                                ...prev,
-                                [pid]: e.target.value,
-                              }));
-                            }}
-                            className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm"
-                          />
-                        </div>
-                      );
-                    })}
-
-                    {/* Validation Display */}
-                    {(() => {
-                      const total = calculateHKD();
-                      const splitTotal = Object.values(customSplits)
-                        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-                      const diff = Math.abs(total - splitTotal);
-
-                      if (total > 0 && splitTotal > 0) {
-                        return (
-                          <div className={`text-xs mt-2 ${diff <= 1 ? 'text-green-400' : 'text-red-400'}`}>
-                            已分配: ${splitTotal.toFixed(1)} / ${total.toFixed(1)}
-                            {diff > 1 && ` (差額: $${diff.toFixed(1)})`}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                )}
-             </div>
-
-             {(() => {
-               const missing: string[] = [];
-               if (!amount || parseFloat(amount) <= 0) missing.push('金額');
-               if (!payerId) missing.push('付款人');
-               if (participantIds.length === 0) missing.push('分擔者');
-               const finalCur = getFinalCurrency();
-               if (finalCur !== 'HKD' && !parseFloat(exchangeRates[finalCur] || '0')) missing.push('匯率');
-               return missing.length > 0 ? (
-                 <div className="text-xs text-gray-400 text-center">
-                   仲未填：<span className="text-yellow-300">{missing.join('、')}</span>
-                 </div>
-               ) : null;
-             })()}
-
-             {editingExpenseId ? (
-               <div className="space-y-2">
-                 <button
-                   onClick={handleUpdateExpense}
-                   disabled={submitting}
-                   className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                 >
-                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 更新中...</> : '更新記錄'}
-                 </button>
-                 <button
-                   onClick={handleCancelEdit}
-                   disabled={submitting}
-                   className="w-full py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
-                 >
-                   取消編輯
-                 </button>
-               </div>
-             ) : (
-               <button
-                 onClick={handleAddExpense}
-                 disabled={submitting}
-                 className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-               >
-                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 新增中...</> : t.addRecord}
-               </button>
-             )}
-          </div>
 
           {/* Balances Section - hide when no expenses */}
           {optimisticExpenses.length > 0 && (
