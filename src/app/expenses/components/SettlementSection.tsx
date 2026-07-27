@@ -28,11 +28,15 @@ export function SettlementSection({
 }: SettlementSectionProps) {
   const { t } = useTranslation();
 
+  const panelId = "settlement-section-panel";
+
   return (
     <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
       <button
         onClick={onToggle}
-        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
       >
         <h3 className="font-bold text-gray-300">{t.settlements}</h3>
         <ChevronDown
@@ -41,7 +45,7 @@ export function SettlementSection({
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4">
+        <div id={panelId} className="px-4 pb-4">
           {settlements.length === 0 ? (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">🎉</div>
@@ -81,7 +85,7 @@ export function SettlementSection({
                 >
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-red-500/40"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ring-2 ring-red-500/40"
                       style={{ backgroundColor: getAvatarColor(fromIdx) }}
                     >
                       {getAvatarText(s.from)}
@@ -90,7 +94,7 @@ export function SettlementSection({
                     <ArrowRight className="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
                     <span className={`text-sm font-medium text-green-300 truncate flex-1 min-w-0 text-right ${isPaid ? 'line-through' : ''}`}>{s.to}</span>
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-green-500/40"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ring-2 ring-green-500/40"
                       style={{ backgroundColor: getAvatarColor(toIdx) }}
                     >
                       {getAvatarText(s.to)}
@@ -103,7 +107,7 @@ export function SettlementSection({
                     <button
                       onClick={togglePaid}
                       aria-pressed={isPaid}
-                      className={`min-w-11 h-9 px-3 inline-flex items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors ${
+                      className={`min-w-11 min-h-11 px-3 inline-flex items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         isPaid
                           ? 'bg-green-500/20 text-green-300'
                           : 'bg-gray-800 text-gray-300 hover:bg-gray-700'

@@ -1163,7 +1163,7 @@ function ExpensesPageContent() {
               </button>
             </div>
             {/* 分享權限提示：講清楚有連結嘅人都入到嚟 */}
-            <p className="mt-1.5 text-[11px] text-gray-500">
+            <p className="mt-1.5 text-xs text-gray-400">
               🔓 有呢個連結嘅人，都可以睇同編輯呢個旅程
             </p>
           </div>

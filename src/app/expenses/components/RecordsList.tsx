@@ -36,11 +36,15 @@ export function RecordsList({
 }: RecordsListProps) {
   const { t } = useTranslation();
 
+  const panelId = "records-list-panel";
+
   return (
     <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
       <button
         onClick={onToggle}
-        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
       >
         <h3 className="font-bold text-gray-300">{t.recordList}</h3>
         <ChevronDown
@@ -49,7 +53,7 @@ export function RecordsList({
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4">
+        <div id={panelId} className="px-4 pb-4">
           {/* Active category filter indicator */}
           {categoryFilter && (() => {
             const cat = CATEGORIES.find(c => c.id === categoryFilter);
@@ -59,7 +63,7 @@ export function RecordsList({
                 <span>只睇「{cat.icon} {cat.label}」</span>
                 <button
                   onClick={() => setCategoryFilter(null)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-400 hover:text-white"
+                  className="min-w-11 min-h-11 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label="清除類別篩選"
                 >
                   ✕
@@ -79,6 +83,7 @@ export function RecordsList({
           <div className="space-y-3">
             {dateGroups.map((dateGroup) => {
               const isExpanded = expandedDates.includes(dateGroup.date);
+              const datePanelId = `records-date-panel-${dateGroup.date.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
               // Toggle handler for this specific date - Multi-expand mode
               const handleToggle = () => {
@@ -95,6 +100,8 @@ export function RecordsList({
                 <button
                   type="button"
                   onClick={handleToggle}
+                  aria-expanded={isExpanded}
+                  aria-controls={datePanelId}
                   className="w-full p-4 bg-black hover:bg-gray-900/80 transition-colors flex justify-between items-center"
                 >
                   <div className="flex items-center gap-3">
@@ -104,7 +111,7 @@ export function RecordsList({
                     <div className="text-left">
                       <div className="font-bold text-white">{formatDate(dateGroup.date)}</div>
                       <div className="mt-0.5">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-800 text-[10px] text-gray-300 font-medium">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-800 text-xs text-gray-300 font-medium">
                           {dateGroup.expenses.length} {t.recordsSuffix}
                         </span>
                       </div>
@@ -113,7 +120,7 @@ export function RecordsList({
                   <div className="text-right flex items-center gap-3">
                     <div>
                       <div className="font-bold text-white text-sm">
-                        <span className="text-gray-500 text-[10px] font-normal mr-1">HKD</span>
+                        <span className="text-gray-500 text-xs font-normal mr-1">HKD</span>
                         ${dateGroup.total.toFixed(1)}
                       </div>
                     </div>

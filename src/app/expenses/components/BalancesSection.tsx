@@ -15,11 +15,15 @@ interface BalancesSectionProps {
 export function BalancesSection({ expenses, members, balances, expanded, onToggle }: BalancesSectionProps) {
   const { t } = useTranslation();
 
+  const panelId = "balances-section-panel";
+
   return (
     <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
       <button
         onClick={onToggle}
-        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
       >
         <h3 className="font-bold text-gray-300">{t.balances}</h3>
         <ChevronDown
@@ -28,7 +32,7 @@ export function BalancesSection({ expenses, members, balances, expanded, onToggl
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 space-y-2">
+        <div id={panelId} className="px-4 pb-4 space-y-2">
           {Object.entries(balances).map(([id, bal]) => {
             const member = members.find((m) => m.id === id);
             if (!member) return null;
@@ -79,7 +83,7 @@ export function BalancesSection({ expenses, members, balances, expanded, onToggl
                     <div className="flex justify-between items-center">
                       <span className="font-medium truncate">{member.name}</span>
                       <span className={`text-sm font-bold ${bal > 0 ? "text-green-400" : bal < 0 ? "text-red-400" : "text-gray-500"}`}>
-                        {bal > 0 ? `+$${bal.toFixed(1)}` : bal < 0 ? `-$${Math.abs(bal).toFixed(1)}` : "$0"}
+                        {bal > 0 ? `應收 +$${bal.toFixed(1)}` : bal < 0 ? `要付 -$${Math.abs(bal).toFixed(1)}` : "已平數 $0"}
                       </span>
                     </div>
                   </div>
@@ -87,18 +91,18 @@ export function BalancesSection({ expenses, members, balances, expanded, onToggl
                 {/* Visual bars */}
                 <div className="space-y-1 pl-12">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-400 w-6">{t.totalAdvanced?.slice(0,1) || '墊'}</span>
+                    <span className="text-xs text-gray-400 w-6">{t.totalAdvanced?.slice(0,1) || '墊'}</span>
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div className="h-full bg-green-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalPaid / maxAmount) * 100}%` }} />
                     </div>
-                    <span className="text-[10px] text-gray-500 w-12 text-right">${totalPaid.toFixed(1)}</span>
+                    <span className="text-xs text-gray-500 w-12 text-right">${totalPaid.toFixed(1)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-400 w-6">{t.totalSpent?.slice(0,1) || '花'}</span>
+                    <span className="text-xs text-gray-400 w-6">{t.totalSpent?.slice(0,1) || '花'}</span>
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalConsumed / maxAmount) * 100}%` }} />
                     </div>
-                    <span className="text-[10px] text-gray-500 w-12 text-right">${totalConsumed.toFixed(1)}</span>
+                    <span className="text-xs text-gray-500 w-12 text-right">${totalConsumed.toFixed(1)}</span>
                   </div>
                 </div>
               </div>
