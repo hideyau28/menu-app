@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState, useRef, useOptimistic, useTrans
 import { useRouter, useSearchParams } from "next/navigation";
 import { createTrip, getTripByCode, addExpense, deleteExpense, updateExpense, renameTrip } from "./actions";
 import { toast, Toaster } from 'sonner';
-import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Pencil } from 'lucide-react';
+import { Star, FileSpreadsheet, Share2, FolderPlus, RotateCw, ChevronDown, Check, Copy, Loader2, Pencil, ArrowRight } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { enUS, zhTW } from 'date-fns/locale';
@@ -26,6 +26,7 @@ import { BalancesSection } from "./components/BalancesSection";
 import { SettlementSection } from "./components/SettlementSection";
 import { RecordsList } from "./components/RecordsList";
 import { TotalCard } from "./components/TotalCard";
+import { NeonRouteRibbon } from "./components/NeonRouteRibbon";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { FavoritesModal } from "./components/FavoritesModal";
 
@@ -1065,8 +1066,30 @@ function ExpensesPageContent() {
     return null;
   }
 
+  /*
+    DIRECTION CONTRACT — Afterhours Ledger (Composition C, approved)
+    THESIS: Every shared expense is a station on one living night route; refuse the
+      generic black/gray/blue card dashboard.
+    OWN-WORLD: Night asphalt field, cyan live route, magenta settlement branch, amber
+      attention signal, destination-board type, ticket-cut operation deck.
+    STORY: See the trip and travelers, record the next expense in seconds, then follow
+      the route to who pays whom.
+    FIRST VIEWPORT: Oversized trip title/route code + live traveler count, horizontal member
+      route ribbon, then a dominant ticket-style Quick Add with CTA visible at 390x844.
+    FORM: semantic HTML/CSS/SVG — never the generated comp as a raster UI.
+  */
+
+  const todayISO = new Date().toISOString().slice(0, 10);
+
   return (
-    <div className="min-h-[101vh] bg-black p-4 pt-12 text-white pb-40">
+    <div
+      className="min-h-[101vh] bg-night-asphalt p-4 pt-6 pb-40 text-cloud-white lg:pt-12"
+      style={{
+        backgroundImage:
+          'radial-gradient(60rem 60rem at 0% 0%, rgba(94,235,255,0.06), transparent 60%), radial-gradient(52rem 52rem at 100% 100%, rgba(255,61,154,0.05), transparent 60%)',
+        backgroundAttachment: 'fixed',
+      }}
+    >
       <Toaster
         position="bottom-center"
         theme="dark"
@@ -1082,127 +1105,162 @@ function ExpensesPageContent() {
           onClose={() => setConfirmModal(null)}
         />
       )}
-      <div className="max-w-md mx-auto">
-          {/* Header */}
-          <div className="mb-5">
-            {/* Title with Language Toggle */}
-            <div className="flex items-start gap-2 mb-2">
-              {nameEditing ? (
-                <input
-                  type="text"
-                  autoFocus
-                  value={nameDraft}
-                  disabled={nameSaving}
-                  maxLength={50}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  onBlur={async () => {
-                    const trimmed = nameDraft.trim();
-                    if (!trimmed || trimmed === data.name) {
-                      setNameEditing(false);
-                      return;
-                    }
-                    try {
-                      setNameSaving(true);
-                      await renameTrip(data.code, trimmed);
-                      await reloadTrip();
-                      showToast("已改旅程名");
-                    } catch {
-                      showToast("改名失敗", "error");
-                    } finally {
-                      setNameSaving(false);
-                      setNameEditing(false);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-                    if (e.key === 'Escape') { setNameEditing(false); }
-                  }}
-                  className="text-3xl font-extrabold tracking-tight flex-1 min-w-0 bg-transparent border-b-2 border-blue-500/60 focus:outline-none focus:border-blue-400 px-0 py-0"
-                  aria-label="編輯旅程名稱"
-                />
-              ) : (
-                <h1
-                  className="text-3xl font-extrabold tracking-tight flex-1 min-w-0 break-words cursor-text hover:text-blue-100 transition-colors"
-                  title={`${data.name} · 㩒一下改名`}
-                  onClick={() => { setNameDraft(data.name); setNameEditing(true); }}
-                >
-                  {data.name}
-                </h1>
-              )}
-              {!nameEditing && (
+      <div className="mx-auto max-w-md lg:max-w-5xl lg:grid lg:grid-cols-[1fr_420px] lg:items-start lg:gap-x-6">
+          {/* Header — destination board */}
+          <div className="mb-3 lg:col-start-1 lg:row-start-1 lg:mb-5">
+            {/* Top strip: 產品/航線識別 + 改名 + 語言切換 */}
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-mist-blue">
+                {language === 'zh' ? '旅程記帳 · 夜行航線' : 'TRIP LEDGER · NIGHT ROUTE'}
+              </span>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                {!nameEditing && (
+                  <button
+                    onClick={() => { setNameDraft(data.name); setNameEditing(true); }}
+                    className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/15 text-mist-blue transition-colors hover:border-route-cyan/60 hover:text-cloud-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan"
+                    aria-label={language === 'zh' ? '改旅程名稱' : 'Rename trip'}
+                    title={language === 'zh' ? '改旅程名稱' : 'Rename trip'}
+                  >
+                    <Pencil className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                )}
                 <button
-                  onClick={() => { setNameDraft(data.name); setNameEditing(true); }}
-                  className="flex-shrink-0 mt-1 h-11 w-11 flex items-center justify-center rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  aria-label={language === 'zh' ? '改旅程名稱' : 'Rename trip'}
-                  title={language === 'zh' ? '改旅程名稱' : 'Rename trip'}
+                  onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
+                  className="min-h-11 min-w-11 rounded-full border border-white/15 px-3 py-1 text-xs font-bold text-mist-blue transition-colors hover:border-route-cyan/60 hover:text-cloud-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan"
+                  aria-label={language === 'zh' ? '切換到英文' : '切換到中文'}
                 >
-                  <Pencil className="w-4 h-4" aria-hidden="true" />
+                  {language === 'zh' ? 'EN' : '中'}
                 </button>
-              )}
-              <button
-                onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-                className="text-xs font-bold border border-gray-600 rounded-full px-3 py-1 min-h-11 min-w-11 hover:bg-gray-800 transition-colors flex-shrink-0 mt-1"
-                aria-label={language === 'zh' ? '切換到英文' : '切換到中文'}
-              >
-                {language === 'zh' ? 'EN' : '中'}
-              </button>
+              </div>
             </div>
-            {/* Trip code chip with inline copy */}
-            <div className="inline-flex items-center gap-1 bg-gray-900/60 border border-gray-800 rounded-full pl-3 pr-1 py-1">
-              <span className="font-mono text-xs tracking-widest text-gray-300">{data.code}</span>
-              <button
-                onClick={async () => {
-                  const copied = await copyTextToClipboard(data.code);
-                  if (copied) {
-                    setCodeCopied(true);
-                    showToast("旅程碼已複製");
-                    setTimeout(() => setCodeCopied(false), 1500);
-                  } else {
-                    showToast("複製失敗，請手動 select", "error");
+
+            {/* 目的地大字：旅程名（可即場改名） */}
+            {nameEditing ? (
+              <input
+                type="text"
+                autoFocus
+                value={nameDraft}
+                disabled={nameSaving}
+                maxLength={50}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onBlur={async () => {
+                  const trimmed = nameDraft.trim();
+                  if (!trimmed || trimmed === data.name) {
+                    setNameEditing(false);
+                    return;
+                  }
+                  try {
+                    setNameSaving(true);
+                    await renameTrip(data.code, trimmed);
+                    await reloadTrip();
+                    showToast("已改旅程名");
+                  } catch {
+                    showToast("改名失敗", "error");
+                  } finally {
+                    setNameSaving(false);
+                    setNameEditing(false);
                   }
                 }}
-                className={`ml-1 min-w-11 min-h-11 flex items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                  codeCopied
-                    ? 'text-green-400 bg-green-500/15'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-                aria-label="複製旅程碼"
-                title="複製旅程碼"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                  if (e.key === 'Escape') { setNameEditing(false); }
+                }}
+                className="w-full min-w-0 border-b-2 border-route-cyan/60 bg-transparent px-0 py-0 text-4xl font-extrabold tracking-tight text-cloud-white focus:border-route-cyan focus:outline-none sm:text-5xl"
+                aria-label="編輯旅程名稱"
+              />
+            ) : (
+              <h1
+                className="cursor-text break-words text-4xl font-extrabold leading-[1.05] tracking-tight text-cloud-white transition-colors hover:text-route-cyan sm:text-5xl"
+                title={`${data.name} · 㩒一下改名`}
+                onClick={() => { setNameDraft(data.name); setNameEditing(true); }}
               >
-                {codeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
+                {data.name}
+              </h1>
+            )}
+
+            {/* 航線識別碼 + compact 總支出 */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-midnight-platform pl-3 pr-1 py-1">
+                <span className="font-mono text-xs tracking-[0.2em] text-route-cyan">{data.code}</span>
+                <button
+                  onClick={async () => {
+                    const copied = await copyTextToClipboard(data.code);
+                    if (copied) {
+                      setCodeCopied(true);
+                      showToast("旅程碼已複製");
+                      setTimeout(() => setCodeCopied(false), 1500);
+                    } else {
+                      showToast("複製失敗，請手動 select", "error");
+                    }
+                  }}
+                  className={`ml-1 flex min-h-11 min-w-11 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan ${
+                    codeCopied
+                      ? 'bg-route-cyan/15 text-route-cyan'
+                      : 'text-mist-blue hover:bg-white/5 hover:text-cloud-white'
+                  }`}
+                  aria-label="複製旅程碼"
+                  title="複製旅程碼"
+                >
+                  {codeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-route-cyan">Live Route</div>
+                <div className="text-xs font-medium text-mist-blue">
+                  {language === 'zh' ? `${data.members.length} 位同行` : `${data.members.length} travelers`}
+                </div>
+              </div>
             </div>
+
             {/* 分享權限提示：講清楚有連結嘅人都入到嚟 */}
-            <p className="mt-1.5 text-xs text-gray-400">
+            <p className="mt-2 text-xs text-mist-blue">
               🔓 有呢個連結嘅人，都可以睇同編輯呢個旅程
             </p>
+          </div>
+
+          {/* 霓虹航線帶：真實成員 = 命名站點，亮起現時付款人，尾接 magenta 結算分支 */}
+          <div className="lg:col-start-1 lg:row-start-2">
+            <NeonRouteRibbon
+              members={data.members}
+              activeId={payerId}
+              routeLabel={language === 'zh' ? '同行航線' : 'TRAVEL ROUTE'}
+              branchLabel={language === 'zh' ? '結算' : 'Settle'}
+            />
           </div>
 
           {/* Favorites Modal */}
           {showFavoritesModal && (
             <FavoritesModal onClose={() => setShowFavoritesModal(false)} />
           )}
-          {/* Add Expense Form - Moved to top */}
-          <div ref={formRef} className={`p-5 rounded-3xl border mb-8 space-y-4 transition-all duration-500 ${
+          {/* 右欄：Quick Add 車票／月台捕捉台（桌面 sticky） */}
+          <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-4">
+          {/* Add Expense Form — ticket-cut transit deck */}
+          <div ref={formRef} className={`relative mb-8 space-y-3 overflow-hidden rounded-tl-[28px] rounded-br-[28px] rounded-tr-lg rounded-bl-lg border p-4 transition-all duration-500 lg:space-y-4 lg:p-5 ${
             editingExpenseId
-              ? `bg-[#1a1a2e] border-yellow-600/50 ${editFlash ? 'ring-4 ring-yellow-500/60' : 'ring-1 ring-yellow-600/30'}`
-              : 'bg-[#1c1c1e] border-gray-800'
+              ? `border-signal-amber/50 bg-midnight-platform ${editFlash ? 'ring-4 ring-signal-amber/60' : 'ring-1 ring-signal-amber/30'}`
+              : 'border-white/10 bg-midnight-platform'
           }`}>
+             {/* 車票頂部訊號燈條：cyan 主航線／編輯時 amber 注意 */}
+             <div aria-hidden="true" className={`absolute inset-x-0 top-0 h-[3px] ${editingExpenseId ? 'bg-signal-amber' : 'bg-gradient-to-r from-route-cyan via-route-cyan/50 to-transparent'}`} />
              {/* #3: Edit mode banner */}
              {editingExpenseId && (
-               <div className="flex items-center justify-between bg-yellow-600/20 text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg -mt-1">
+               <div className="-mt-1 flex items-center justify-between rounded-lg bg-signal-amber/15 px-3 py-2 text-xs font-bold text-signal-amber">
                  <span>✏️ 編輯模式</span>
-                 <button onClick={handleCancelEdit} className="text-gray-400 hover:text-white">✕ 取消</button>
+                 <button onClick={handleCancelEdit} className="text-mist-blue hover:text-cloud-white">✕ 取消</button>
                </div>
              )}
-             {/* Quick Add heading */}
-             <div className="space-y-0.5">
-               <h2 className="text-base font-bold text-white">快速記一筆</h2>
-               <p className="text-xs text-gray-400">
-                 {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)} · {splitMode === 'equal' ? (participantIds.length === data.members.length ? '全員平均分' : `${participantIds.length} 人平均分`) : '自訂分帳'}
+             {/* Quick Add heading — 月台資訊 */}
+             <div className="flex items-end justify-between gap-2">
+               <div className="space-y-0.5">
+                 <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-route-cyan">Quick Add · 下一站</div>
+                 <h2 className="text-lg font-bold text-cloud-white">快速記一筆</h2>
+               </div>
+               <p className="pb-0.5 text-right text-xs text-mist-blue">
+                 {date === todayISO ? '今日' : formatDate(date)} · {splitMode === 'equal' ? (participantIds.length === data.members.length ? '全員平均分' : `${participantIds.length} 人平均分`) : '自訂分帳'}
                </p>
              </div>
-             <div className="grid grid-cols-3 gap-2">
+             {/* 類別 = 路線站點（橫向排列，可捲動；44px targets） */}
+             <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {CATEGORIES.map((c) => {
                   const color = CATEGORY_COLORS[c.id] || '#6b7280';
                   const isSelected = category === c.id;
@@ -1211,19 +1269,19 @@ function ExpensesPageContent() {
                       key={c.id}
                       onClick={() => setCategory(c.id)}
                       aria-pressed={isSelected}
-                      className={`h-[52px] p-2 rounded-xl border-2 transition-all text-white flex flex-col items-center justify-center active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black motion-reduce:transition-none motion-reduce:active:scale-100 ${
+                      className={`group relative flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border px-2 py-1.5 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-night-asphalt motion-reduce:transition-none motion-reduce:active:scale-100 lg:min-h-[56px] lg:py-2 ${
                         isSelected
-                          ? 'font-bold scale-105 shadow-md'
-                          : 'hover:scale-105 motion-reduce:hover:scale-100 hover:bg-white/5'
+                          ? 'border-route-cyan bg-route-cyan/10 shadow-[0_0_12px_rgba(94,235,255,0.25)]'
+                          : 'border-white/10 bg-elevated-ink/60 hover:border-white/25'
                       }`}
-                      style={
-                        isSelected
-                          ? { borderColor: color, backgroundColor: color }
-                          : { borderColor: color }
-                      }
                     >
-                      <span className="text-lg">{c.icon}</span>
-                      <span className="text-xs leading-tight mt-1 px-1 text-center">
+                      <span
+                        aria-hidden="true"
+                        className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: color, boxShadow: isSelected ? `0 0 6px ${color}` : undefined }}
+                      />
+                      <span className="text-lg leading-none">{c.icon}</span>
+                      <span className={`px-0.5 text-center text-[11px] leading-tight ${isSelected ? 'font-bold text-cloud-white' : 'text-mist-blue'}`}>
                         {(() => { const v = t[c.id as keyof typeof t]; return typeof v === 'string' ? v : c.label; })()}
                       </span>
                     </button>
@@ -1231,10 +1289,13 @@ function ExpensesPageContent() {
                 })}
              </div>
 
-             {/* Currency + Amount (primary row) */}
-             <div className="grid grid-cols-2 gap-3">
+             {/* 車票穿孔分隔線：站點資訊 ↕ 金額月台 */}
+             <div aria-hidden="true" className="ticket-perf mx-1 my-1" />
+
+             {/* Currency + Amount (金額月台 — 主要資料) */}
+             <div className="grid grid-cols-[1fr_1.4fr] gap-3">
                <label className="flex flex-col gap-1">
-                 <span className="text-xs font-medium text-gray-400">{t.currency}</span>
+                 <span className="text-xs font-medium text-mist-blue">{t.currency}</span>
                  <select
                    value={currency}
                    onChange={(e) => {
@@ -1244,9 +1305,9 @@ function ExpensesPageContent() {
                        setCustomCurrency('');
                      }
                    }}
-                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none text-center text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                   className="h-[52px] w-full appearance-none rounded-xl border border-white/10 bg-elevated-ink px-3 text-center text-[15px] font-medium leading-normal text-cloud-white placeholder:text-mist-blue focus:border-route-cyan focus:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan"
                    style={{
-                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%235eebff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                      backgroundPosition: 'right 0.5rem center',
                      backgroundRepeat: 'no-repeat',
                      backgroundSize: '1.5em 1.5em',
@@ -1261,7 +1322,7 @@ function ExpensesPageContent() {
                </label>
 
                <label className="flex flex-col gap-1">
-                 <span className="text-xs font-medium text-gray-400">{t.amount}</span>
+                 <span className="text-xs font-medium text-mist-blue">{t.amount}</span>
                  <input
                    type="number"
                    step="0.01"
@@ -1270,7 +1331,7 @@ function ExpensesPageContent() {
                    placeholder={`${t.amountPh} (${getFinalCurrency()})`}
                    value={amount}
                    onChange={(e) => setAmount(e.target.value)}
-                   className="w-full px-3 h-[52px] bg-black rounded-xl border border-gray-800 focus:border-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none text-[15px] font-medium leading-normal placeholder:text-gray-500"
+                   className="h-[52px] w-full appearance-none rounded-xl border border-white/10 bg-elevated-ink px-3 text-right font-mono text-2xl font-bold leading-normal tracking-tight text-cloud-white caret-route-cyan placeholder:text-base placeholder:font-sans placeholder:font-normal placeholder:text-mist-blue focus:border-route-cyan focus:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan"
                  />
                </label>
              </div>
@@ -1283,17 +1344,17 @@ function ExpensesPageContent() {
                  aria-label="自訂幣種代碼"
                  value={customCurrency}
                  onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
-                 className="w-full p-3 bg-black rounded-xl border border-gray-800 text-sm placeholder:text-gray-500"
+                 className="w-full rounded-xl border border-white/10 bg-elevated-ink p-3 text-sm text-cloud-white placeholder:text-mist-blue focus:border-route-cyan focus:outline-none"
                  maxLength={5}
                />
              )}
 
-             {/* Exchange Rate + HKD preview (combined compact row) */}
+             {/* Exchange Rate + HKD preview — amber 匯率注意訊號 */}
              {((currency !== 'HKD' && currency !== 'OTHER') ||
                (currency === 'OTHER' && customCurrency.trim())) && (
-               <div className="bg-black rounded-xl border border-gray-800 p-2 space-y-1">
+               <div className="space-y-1 rounded-xl border border-signal-amber/30 bg-signal-amber/[0.06] p-2">
                  <div className="flex items-center gap-2">
-                   <span className="text-xs font-mono font-bold text-gray-300 bg-gray-800/80 px-2 py-1 rounded-md whitespace-nowrap">
+                   <span className="whitespace-nowrap rounded-md bg-signal-amber/15 px-2 py-1 font-mono text-xs font-bold text-signal-amber">
                      {getFinalCurrency()}→HKD
                    </span>
                    <input
@@ -1308,13 +1369,13 @@ function ExpensesPageContent() {
                          [code]: e.target.value,
                        }));
                      }}
-                     className="flex-1 min-w-0 px-2 py-1.5 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm focus:border-blue-600 focus:outline-none"
+                     className="min-w-0 flex-1 rounded-lg border border-white/10 bg-elevated-ink px-2 py-1.5 font-mono text-sm text-cloud-white focus:border-signal-amber focus:outline-none"
                      aria-label={`${getFinalCurrency()} 兌 HKD 匯率`}
                    />
                    <button
                      onClick={() => fetchExchangeRate(getFinalCurrency())}
                      disabled={fetchingRate}
-                     className="min-w-11 min-h-11 flex items-center justify-center bg-blue-600/20 text-blue-300 rounded-lg text-xs hover:bg-blue-600/30 transition-colors disabled:opacity-50"
+                     className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-signal-amber/15 text-xs text-signal-amber transition-colors hover:bg-signal-amber/25 disabled:opacity-50"
                      aria-label="自動取得匯率"
                      title="自動取得匯率"
                    >
@@ -1322,25 +1383,25 @@ function ExpensesPageContent() {
                    </button>
                  </div>
                  {amount && calculateHKD() > 0 && (
-                   <div className="text-xs text-blue-300 text-right pr-1">
+                   <div className="pr-1 text-right font-mono text-xs text-signal-amber">
                      ≈ HKD ${calculateHKD().toFixed(2)}
                    </div>
                  )}
                </div>
              )}
 
-             {/* 付款人 (default view) */}
-             <div className="space-y-2">
-                  <span className="text-xs text-gray-400">{t.whoPaid}:</span>
-                  <div className="flex flex-wrap gap-3 py-3 px-1">
+             {/* 付款人 (default view) — 亮起現時站點 */}
+             <div className="space-y-1.5">
+                  <span className="text-xs text-mist-blue">{t.whoPaid}:</span>
+                  <div className="flex flex-wrap gap-3 px-1 py-1.5 lg:py-3">
                     {data.members.map((m, idx) => (
                       <button
                         key={m.id}
                         onClick={() => setPayerId(m.id)}
-                        className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                        className={`relative flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold text-cloud-white transition-all ${
                           payerId === m.id
-                            ? 'border-white scale-110 shadow-lg shadow-blue-500/50'
-                            : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
+                            ? 'scale-110 border-route-cyan shadow-[0_0_14px_rgba(94,235,255,0.6)]'
+                            : 'border-white/15 opacity-60 hover:scale-105 hover:opacity-100'
                         }`}
                         style={{
                           backgroundColor: getAvatarColor(idx),
@@ -1351,8 +1412,8 @@ function ExpensesPageContent() {
                       >
                         {getAvatarText(m.name)}
                         {payerId === m.id && (
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center text-xs">
-                            ✓
+                          <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-night-asphalt bg-route-cyan text-night-asphalt">
+                            <Check className="h-3 w-3" strokeWidth={3} />
                           </div>
                         )}
                       </button>
@@ -1364,39 +1425,39 @@ function ExpensesPageContent() {
              <details
                open={advancedOpen}
                onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
-               className="bg-black rounded-xl border border-gray-800 group overflow-hidden"
+               className="group overflow-hidden rounded-xl border border-white/10 bg-elevated-ink/50"
              >
                <summary
-                 className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 min-h-[44px] py-2 flex items-center justify-between gap-2 hover:bg-gray-900/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
+                 className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan [&::-webkit-details-marker]:hidden"
                  aria-label="調整分帳"
                >
-                 <span className="text-sm text-gray-300 font-medium flex items-center gap-2 min-w-0">
+                 <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-cloud-white">
                    ⚙️ 調整分帳
-                   <span className="text-xs text-gray-400 truncate">
-                     {splitMode === 'equal' ? (participantIds.length === data.members.length ? '全員平均分' : `${participantIds.length} 人平均分`) : '自訂分帳'} · {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)}
+                   <span className="truncate text-xs text-mist-blue">
+                     {splitMode === 'equal' ? (participantIds.length === data.members.length ? '全員平均分' : `${participantIds.length} 人平均分`) : '自訂分帳'} · {date === todayISO ? '今日' : formatDate(date)}
                    </span>
                  </span>
-                 <ChevronDown className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform flex-shrink-0" aria-hidden="true" />
+                 <ChevronDown className="w-4 h-4 flex-shrink-0 text-mist-blue transition-transform group-open:rotate-180" aria-hidden="true" />
                </summary>
-               <div className="px-3 pb-3 pt-1 space-y-3">
+               <div className="space-y-3 px-3 pb-3 pt-1">
 
                 {/* Date + Note (inner controls) */}
-                <details className="bg-[#1c1c1e] rounded-lg border border-gray-700 group/dn overflow-hidden">
-                  <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 min-h-[44px] flex items-center justify-between hover:bg-gray-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg">
-                    <span className="text-sm text-gray-300 truncate flex-1 min-w-0">
-                      📅 {date === new Date().toISOString().slice(0,10) ? '今日' : formatDate(date)}
-                      {note && <span className="text-gray-500"> · 📝 {note}</span>}
+                <details className="group/dn overflow-hidden rounded-lg border border-white/10 bg-midnight-platform">
+                  <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0 flex-1 truncate text-sm text-cloud-white">
+                      📅 {date === todayISO ? '今日' : formatDate(date)}
+                      {note && <span className="text-mist-blue"> · 📝 {note}</span>}
                     </span>
-                    <ChevronDown className="w-4 h-4 text-gray-500 group-open/dn:rotate-180 transition-transform flex-shrink-0 ml-2" aria-hidden="true" />
+                    <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0 text-mist-blue transition-transform group-open/dn:rotate-180" aria-hidden="true" />
                   </summary>
-                  <div className="px-3 pb-3 pt-1 grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 px-3 pb-3 pt-1">
                     <label className="contents">
                       <span className="sr-only">日期</span>
                       <input
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full px-3 h-[44px] bg-black rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none appearance-none text-[14px] font-medium leading-normal"
+                        className="h-[44px] w-full appearance-none rounded-lg border border-white/10 bg-elevated-ink px-3 text-[14px] font-medium leading-normal text-cloud-white focus:border-route-cyan focus:outline-none"
                       />
                     </label>
                     <label className="contents">
@@ -1406,7 +1467,7 @@ function ExpensesPageContent() {
                         placeholder={t.notePh}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        className="w-full px-3 h-[44px] bg-black rounded-lg border border-gray-700 focus:border-blue-600 focus:outline-none text-[14px] font-medium leading-normal placeholder:text-gray-500"
+                        className="h-[44px] w-full rounded-lg border border-white/10 bg-elevated-ink px-3 text-[14px] font-medium leading-normal text-cloud-white placeholder:text-mist-blue focus:border-route-cyan focus:outline-none"
                       />
                     </label>
                   </div>
@@ -1415,23 +1476,23 @@ function ExpensesPageContent() {
                 {/* 誰分擔 - Avatar Style with 全選/全不選 */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">{t.whoSplit}:</span>
+                    <span className="text-xs text-mist-blue">{t.whoSplit}:</span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setParticipantIds(data.members.map(m => m.id))}
-                        className="min-h-11 text-xs px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
+                        className="min-h-11 rounded-lg bg-route-cyan/15 px-3 py-1 text-xs font-medium text-route-cyan transition-colors hover:bg-route-cyan/25"
                       >
                         {t.selectAll}
                       </button>
                       <button
                         onClick={() => setParticipantIds([])}
-                        className="min-h-11 text-xs px-3 py-1 bg-gray-700/50 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                        className="min-h-11 rounded-lg bg-white/5 px-3 py-1 text-xs font-medium text-mist-blue transition-colors hover:bg-white/10"
                       >
                         {t.deselectAll}
                       </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-3 py-3 px-1">
+                  <div className="flex flex-wrap gap-3 px-1 py-3">
                     {data.members.map((m, idx) => {
                       const isSelected = participantIds.includes(m.id);
                       return (
@@ -1442,10 +1503,10 @@ function ExpensesPageContent() {
                               ? prev.filter(p => p !== m.id)
                               : [...prev, m.id]
                           )}
-                          className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                          className={`relative flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold text-cloud-white transition-all ${
                             isSelected
-                              ? 'border-white ring-2 ring-offset-2 ring-offset-black ring-blue-500 scale-110 shadow-lg shadow-blue-500/50'
-                              : 'border-gray-700 opacity-60 hover:opacity-100 hover:scale-105'
+                              ? 'scale-110 border-route-cyan shadow-[0_0_12px_rgba(94,235,255,0.5)]'
+                              : 'border-white/15 opacity-60 hover:scale-105 hover:opacity-100'
                           }`}
                           style={{
                             backgroundColor: getAvatarColor(idx),
@@ -1456,8 +1517,8 @@ function ExpensesPageContent() {
                         >
                           {getAvatarText(m.name)}
                           {isSelected && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-black flex items-center justify-center">
-                              <Check className="w-3 h-3 text-white" />
+                            <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-night-asphalt bg-route-cyan">
+                              <Check className="h-3 w-3 text-night-asphalt" strokeWidth={3} />
                             </div>
                           )}
                         </button>
@@ -1469,18 +1530,18 @@ function ExpensesPageContent() {
                 {/* Split Mode Toggle (segmented control) */}
                 {participantIds.length > 0 && (
                   <div className="flex items-center gap-2 pt-2">
-                    <span className="text-xs text-gray-400 whitespace-nowrap">{t.splitMode}:</span>
-                    <div className="flex bg-gray-900 border border-gray-800 rounded-full p-0.5" role="group" aria-label={t.splitMode}>
+                    <span className="whitespace-nowrap text-xs text-mist-blue">{t.splitMode}:</span>
+                    <div className="flex rounded-full border border-white/10 bg-midnight-platform p-0.5" role="group" aria-label={t.splitMode}>
                       <button
                         onClick={() => {
                           setSplitMode('equal');
                           setCustomSplits({});
                         }}
                         aria-pressed={splitMode === 'equal'}
-                        className={`min-h-11 px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
+                        className={`min-h-11 whitespace-nowrap rounded-full px-3 py-1 text-xs transition-all ${
                           splitMode === 'equal'
-                            ? 'bg-blue-600 text-white font-bold shadow-sm'
-                            : 'text-gray-400 hover:text-gray-200'
+                            ? 'bg-route-cyan font-bold text-night-asphalt'
+                            : 'text-mist-blue hover:text-cloud-white'
                         }`}
                       >
                         {t.equalSplit}
@@ -1495,10 +1556,10 @@ function ExpensesPageContent() {
                           setCustomSplits(newSplits);
                         }}
                         aria-pressed={splitMode === 'custom'}
-                        className={`min-h-11 px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all ${
+                        className={`min-h-11 whitespace-nowrap rounded-full px-3 py-1 text-xs transition-all ${
                           splitMode === 'custom'
-                            ? 'bg-blue-600 text-white font-bold shadow-sm'
-                            : 'text-gray-400 hover:text-gray-200'
+                            ? 'bg-route-cyan font-bold text-night-asphalt'
+                            : 'text-mist-blue hover:text-cloud-white'
                         }`}
                       >
                         {t.customSplit}
@@ -1509,15 +1570,15 @@ function ExpensesPageContent() {
 
                 {/* Custom Split Inputs */}
                 {splitMode === 'custom' && participantIds.length > 0 && (
-                  <div className="bg-black p-3 rounded-xl border border-gray-800 space-y-2">
-                    <div className="text-xs text-gray-400 mb-2">輸入各人分擔金額 (HKD):</div>
+                  <div className="space-y-2 rounded-xl border border-white/10 bg-midnight-platform p-3">
+                    <div className="mb-2 text-xs text-mist-blue">輸入各人分擔金額 (HKD):</div>
                     {participantIds.map(pid => {
                       const member = data.members.find(m => m.id === pid);
                       if (!member) return null;
 
                       return (
                         <div key={pid} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-300 w-20">{member.name}:</span>
+                          <span className="w-20 text-sm text-cloud-white">{member.name}:</span>
                           <input
                             type="number"
                             step="0.01"
@@ -1530,7 +1591,7 @@ function ExpensesPageContent() {
                                 [pid]: e.target.value,
                               }));
                             }}
-                            className="flex-1 p-2 bg-[#1c1c1e] rounded-lg border border-gray-700 text-sm"
+                            className="flex-1 rounded-lg border border-white/10 bg-elevated-ink p-2 font-mono text-sm text-cloud-white focus:border-route-cyan focus:outline-none"
                           />
                         </div>
                       );
@@ -1545,7 +1606,7 @@ function ExpensesPageContent() {
 
                       if (total > 0 && splitTotal > 0) {
                         return (
-                          <div className={`text-xs mt-2 ${diff <= 1 ? 'text-green-400' : 'text-red-400'}`}>
+                          <div className={`mt-2 font-mono text-xs ${diff <= 1 ? 'text-route-cyan' : 'text-route-magenta'}`}>
                             已分配: ${splitTotal.toFixed(1)} / ${total.toFixed(1)}
                             {diff > 1 && ` (差額: $${diff.toFixed(1)})`}
                           </div>
@@ -1566,8 +1627,8 @@ function ExpensesPageContent() {
                const finalCur = getFinalCurrency();
                if (finalCur !== 'HKD' && !parseFloat(exchangeRates[finalCur] || '0')) missing.push('匯率');
                return missing.length > 0 ? (
-                 <div className="text-xs text-gray-400 text-center">
-                   仲未填：<span className="text-yellow-300">{missing.join('、')}</span>
+                 <div className="text-center text-xs text-mist-blue">
+                   仲未填：<span className="font-medium text-signal-amber">{missing.join('、')}</span>
                  </div>
                ) : null;
              })()}
@@ -1577,14 +1638,14 @@ function ExpensesPageContent() {
                  <button
                    onClick={handleUpdateExpense}
                    disabled={submitting}
-                   className="w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                   className="flex w-full items-center justify-center gap-2 rounded-tl-2xl rounded-br-2xl rounded-tr-md rounded-bl-md bg-signal-amber py-3.5 text-base font-bold text-night-asphalt shadow-[0_0_20px_rgba(255,184,77,0.35)] transition-colors hover:bg-signal-amber/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-amber focus-visible:ring-offset-2 focus-visible:ring-offset-night-asphalt disabled:opacity-50"
                  >
                    {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 更新中...</> : '更新記錄'}
                  </button>
                  <button
                    onClick={handleCancelEdit}
                    disabled={submitting}
-                   className="w-full py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
+                   className="w-full rounded-xl border border-white/10 bg-elevated-ink py-3 font-bold text-cloud-white transition-colors hover:bg-white/10 disabled:opacity-50"
                  >
                    取消編輯
                  </button>
@@ -1594,12 +1655,16 @@ function ExpensesPageContent() {
                  onClick={handleAddExpense}
                  disabled={submitting}
                  aria-label={language === 'zh' ? '記低呢筆' : t.addRecord}
-                 className="w-full min-h-[44px] py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                 className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-tl-2xl rounded-br-2xl rounded-tr-md rounded-bl-md bg-route-cyan py-3.5 text-base font-extrabold tracking-tight text-night-asphalt shadow-[0_0_20px_rgba(94,235,255,0.4)] transition-all hover:bg-route-cyan/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-night-asphalt disabled:opacity-50 motion-reduce:active:scale-100"
                >
-                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 新增中...</> : (language === 'zh' ? '記低呢筆' : t.addRecord)}
+                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 新增中...</> : (<>{language === 'zh' ? '記低呢筆' : t.addRecord}<ArrowRight className="h-4 w-4" aria-hidden="true" /></>)}
                </button>
              )}
           </div>
+          </div>
+
+          {/* 左欄：夜行帳簿（結算方向 → 總額 → 結餘 → 記錄） */}
+          <div className="lg:col-start-1 lg:row-start-3 lg:min-w-0">
 
           {/* Settlement Plan Section - hide when no expenses */}
           {optimisticExpenses.length > 0 && (
@@ -1626,7 +1691,7 @@ function ExpensesPageContent() {
           <div className="flex items-stretch gap-2 mb-6">
             <button
               onClick={handleShareLink}
-              className="flex-grow min-h-11 h-11 flex items-center justify-center gap-2 bg-blue-600 rounded-xl text-white font-bold hover:bg-blue-500 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              className="flex h-11 min-h-11 flex-grow items-center justify-center gap-2 rounded-xl bg-route-cyan font-bold text-night-asphalt transition-all hover:bg-route-cyan/90 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-night-asphalt motion-reduce:active:scale-100"
               aria-label="分享旅程連結，任何人有連結都可以睇同編輯"
             >
               <Share2 className="w-[18px] h-[18px]" />
@@ -1634,19 +1699,19 @@ function ExpensesPageContent() {
             </button>
             <details className="relative">
               <summary
-                className="list-none [&::-webkit-details-marker]:hidden cursor-pointer min-w-11 min-h-11 h-11 px-4 flex items-center justify-center gap-1 bg-gray-800/80 rounded-xl text-gray-300 hover:bg-gray-700 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="flex h-11 min-h-11 min-w-11 cursor-pointer list-none items-center justify-center gap-1 rounded-xl border border-white/10 bg-elevated-ink px-4 text-mist-blue transition-all hover:bg-white/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan [&::-webkit-details-marker]:hidden motion-reduce:active:scale-100"
                 aria-label="更多操作"
               >
                 更多
                 <ChevronDown className="w-4 h-4" aria-hidden="true" />
               </summary>
-              <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-gray-800 bg-[#1c1c1e] shadow-lg overflow-hidden">
+              <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-elevated-ink shadow-lg">
                 <button
                   onClick={(e) => {
                     handleExportExcel();
                     e.currentTarget.closest('details')?.removeAttribute('open');
                   }}
-                  className="w-full min-h-11 h-11 px-4 flex items-center gap-3 text-sm text-gray-200 hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+                  className="flex h-11 min-h-11 w-full items-center gap-3 px-4 text-sm text-cloud-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan focus-visible:ring-inset"
                 >
                   <FileSpreadsheet className="w-[18px] h-[18px]" />
                   匯出 Excel
@@ -1656,7 +1721,7 @@ function ExpensesPageContent() {
                     setShowFavoritesModal(true);
                     e.currentTarget.closest('details')?.removeAttribute('open');
                   }}
-                  className="w-full min-h-11 h-11 px-4 flex items-center gap-3 text-sm text-gray-200 hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+                  className="flex h-11 min-h-11 w-full items-center gap-3 px-4 text-sm text-cloud-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan focus-visible:ring-inset"
                 >
                   <Star className="w-[18px] h-[18px]" />
                   收藏 App
@@ -1666,7 +1731,7 @@ function ExpensesPageContent() {
                     router.push('/expenses');
                     e.currentTarget.closest('details')?.removeAttribute('open');
                   }}
-                  className="w-full min-h-11 h-11 px-4 flex items-center gap-3 text-sm text-gray-200 hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+                  className="flex h-11 min-h-11 w-full items-center gap-3 px-4 text-sm text-cloud-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan focus-visible:ring-inset"
                 >
                   <FolderPlus className="w-[18px] h-[18px]" />
                   新旅程
@@ -1702,13 +1767,15 @@ function ExpensesPageContent() {
             onToggle={() => setRecordsExpanded(!recordsExpanded)}
           />
 
+          </div>
+
           {/* Footer Branding */}
-          <div className="mt-6 mb-4 text-center">
+          <div className="mt-6 mb-4 text-center lg:col-span-2">
             <a
               href="https://www.instagram.com/midlife_ai_hk"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs text-mist-blue transition-colors hover:text-cloud-white"
             >
               <span>Made by</span>
               <span className="font-medium">@midlife_ai_hk</span>

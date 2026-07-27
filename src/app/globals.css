@@ -12,6 +12,90 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* ===== Neon Night Routes — Afterhours Ledger 設計代幣 =====
+   夜間航線視覺系統。三種訊號色各有固定職責（cyan 主航線/focus/主要進度、
+   magenta 結算分支方向、amber 匯率/編輯注意），其餘為深夜色與可讀文字。 */
+@theme {
+  --color-route-cyan: #5eebff;
+  --color-route-magenta: #ff3d9a;
+  --color-signal-amber: #ffb84d;
+  --color-night-asphalt: #05060a;
+  --color-midnight-platform: #0b1020;
+  --color-elevated-ink: #141b2d;
+  --color-cloud-white: #f5f7ff;
+  --color-mist-blue: #aab6cf;
+}
+
+/* 隱藏橫向捲軸（航線帶用），但保留可捲動 */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* 車票／月台切口面板：非對稱轉角 + 側邊穿孔 divider */
+.ticket-perf {
+  position: relative;
+  height: 0;
+  border-top: 1.5px dashed rgba(94, 235, 255, 0.28);
+}
+.ticket-perf::before,
+.ticket-perf::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-night-asphalt);
+  transform: translateY(-50%);
+}
+.ticket-perf::before {
+  left: -8px;
+}
+.ticket-perf::after {
+  right: -8px;
+}
+
+/* 簽名式航線繪製動畫：載入時 cyan/magenta 路段由左向右畫出、站點淡入 */
+@keyframes route-seg-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes route-node-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.route-seg {
+  transform-origin: left center;
+  animation: route-seg-draw 0.5s ease-out both;
+}
+.route-node {
+  animation: route-node-in 0.4s ease-out both;
+}
+
+/* reduced-motion：提供完全靜態但同樣清晰的版本 */
+@media (prefers-reduced-motion: reduce) {
+  .route-seg,
+  .route-node {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
 /* iPhone 安全區域（home indicator / 瀏海）padding —— 修正之前 pb-safe 係 no-op 嘅問題 */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);

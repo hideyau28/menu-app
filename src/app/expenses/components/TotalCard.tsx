@@ -15,30 +15,24 @@ export function TotalCard({ expenses, members, categoryFilter, setCategoryFilter
   const { t } = useTranslation();
 
   return (
-    <div className="mb-6 p-6 rounded-3xl shadow-lg border border-gray-700/50 relative overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      }}
-    >
-      {/* Subtle glow orb */}
-      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
-      />
+    <div className="relative mb-6 overflow-hidden rounded-tl-3xl rounded-br-3xl rounded-tr-lg rounded-bl-lg border border-white/10 bg-midnight-platform p-6">
+      {/* 頂部 cyan 航線髮絲線（安靜，唔係整塊發光） */}
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-route-cyan/60 via-route-cyan/20 to-transparent" />
       <div className="relative">
-        <div className="text-blue-200 text-sm mb-1">{t.totalExpense}</div>
-        <div className="text-4xl font-extrabold text-white tracking-tight">
-            <span className="text-blue-200/90 text-2xl mr-1">HKD</span>
+        <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.2em] text-mist-blue">{t.totalExpense}</div>
+        <div className="font-mono text-4xl font-extrabold tracking-tight text-cloud-white">
+            <span className="mr-1 text-2xl text-route-cyan">HKD</span>
             {expenses.reduce((s, e) => s + e.amountHKD, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
         </div>
         {/* Per-person average + record count, or empty hint */}
         {members.length > 0 && expenses.length > 0 ? (
-          <div className="flex items-center gap-2 mt-2 text-sm text-blue-100/90">
+          <div className="mt-2 flex items-center gap-2 text-sm text-mist-blue">
             <span>人均 ${(expenses.reduce((s, e) => s + e.amountHKD, 0) / members.length).toFixed(1)}</span>
-            <span className="text-blue-200/40">·</span>
+            <span className="text-mist-blue/40">·</span>
             <span>{expenses.length} 筆記錄</span>
           </div>
         ) : (
-          <div className="mt-2 text-sm text-blue-100/80">
+          <div className="mt-2 text-sm text-mist-blue">
             ↓ 喺下面記低第一筆支出
           </div>
         )}
@@ -88,15 +82,15 @@ export function TotalCard({ expenses, members, categoryFilter, setCategoryFilter
                       aria-pressed={isActive}
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
                         isActive
-                          ? 'bg-white/15 text-white'
+                          ? 'bg-route-cyan/15 text-cloud-white'
                           : categoryFilter
-                            ? 'text-gray-500 hover:text-gray-300'
-                            : 'text-gray-300 hover:bg-white/5'
+                            ? 'text-mist-blue/60 hover:text-mist-blue'
+                            : 'text-mist-blue hover:bg-white/5'
                       }`}
                     >
                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
                       <span>{cat.icon} {cat.label}</span>
-                      <span className={isActive ? 'text-white/80' : 'text-gray-400'}>{((cat.amount / total) * 100).toFixed(0)}%</span>
+                      <span className={isActive ? 'text-cloud-white/80' : 'text-mist-blue/70'}>{((cat.amount / total) * 100).toFixed(0)}%</span>
                     </button>
                   );
                 })}

@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { ChevronDown, ArrowRight, Check } from "lucide-react";
+import { ChevronDown, ArrowRight, Check, ArrowLeftRight } from "lucide-react";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { getAvatarColor, getAvatarText } from "../constants";
 import type { Member } from "../types";
@@ -44,21 +44,22 @@ export function SettlementSection({
           : `已付 ${paidCount}/${totalCount}`;
 
   return (
-    <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
+    <div className="mb-4 overflow-hidden rounded-2xl border border-route-magenta/25 bg-midnight-platform">
       <button
         onClick={onToggle}
         aria-expanded={expanded}
         aria-controls={panelId}
-        className="w-full min-h-11 p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+        className="flex w-full min-h-11 items-center justify-between p-4 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-magenta focus-visible:ring-inset"
       >
         <div className="flex items-center gap-2">
-          <h3 className="font-bold text-gray-300">{t.settlements}</h3>
+          <ArrowLeftRight className="h-4 w-4 text-route-magenta" aria-hidden="true" />
+          <h3 className="font-bold text-cloud-white">{t.settlements}</h3>
           {statusText && (
             <span
-              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                 paidCount === totalCount
-                  ? 'bg-green-500/15 text-green-300'
-                  : 'bg-yellow-500/15 text-yellow-300'
+                  ? 'bg-route-cyan/15 text-route-cyan'
+                  : 'bg-signal-amber/15 text-signal-amber'
               }`}
             >
               {statusText}
@@ -66,7 +67,7 @@ export function SettlementSection({
           )}
         </div>
         <ChevronDown
-          className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 text-mist-blue transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -75,7 +76,7 @@ export function SettlementSection({
           {settlements.length === 0 ? (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">🎉</div>
-              <div className="text-gray-400 text-sm">{t.emptySettlements}</div>
+              <div className="text-sm text-mist-blue">{t.emptySettlements}</div>
             </div>
           ) : (
             <div className="space-y-2">
@@ -106,37 +107,37 @@ export function SettlementSection({
                 return (
                 <div
                   key={idx}
-                  className={`bg-black p-3 rounded-xl space-y-2 transition-opacity ${isPaid ? 'opacity-50' : ''}`}
+                  className={`space-y-2 rounded-xl border border-white/5 bg-elevated-ink p-3 transition-opacity ${isPaid ? 'opacity-50' : ''}`}
                   aria-label={`${s.from} 還 $${s.amount.toFixed(1)} 俾 ${s.to}${isPaid ? '（已付清）' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ring-2 ring-red-500/40"
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-cloud-white ring-2 ring-route-magenta/50"
                       style={{ backgroundColor: getAvatarColor(fromIdx) }}
                     >
                       {getAvatarText(s.from)}
                     </div>
-                    <span className={`text-sm font-medium text-red-300 truncate flex-1 min-w-0 ${isPaid ? 'line-through' : ''}`}>{s.from}</span>
-                    <ArrowRight className="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
-                    <span className={`text-sm font-medium text-green-300 truncate flex-1 min-w-0 text-right ${isPaid ? 'line-through' : ''}`}>{s.to}</span>
+                    <span className={`min-w-0 flex-1 truncate text-sm font-medium text-route-magenta ${isPaid ? 'line-through' : ''}`}>{s.from}</span>
+                    <ArrowRight className="h-4 w-4 flex-shrink-0 text-route-magenta" aria-hidden="true" />
+                    <span className={`min-w-0 flex-1 truncate text-right text-sm font-medium text-route-cyan ${isPaid ? 'line-through' : ''}`}>{s.to}</span>
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ring-2 ring-green-500/40"
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-cloud-white ring-2 ring-route-cyan/50"
                       style={{ backgroundColor: getAvatarColor(toIdx) }}
                     >
                       {getAvatarText(s.to)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <div className={`flex-1 text-center text-base font-bold tracking-tight ${isPaid ? 'text-gray-500 line-through' : 'text-yellow-300'}`}>
+                    <div className={`flex-1 text-center font-mono text-base font-bold tracking-tight ${isPaid ? 'text-mist-blue line-through' : 'text-route-magenta'}`}>
                       HKD ${s.amount.toFixed(1)}
                     </div>
                     <button
                       onClick={togglePaid}
                       aria-pressed={isPaid}
-                      className={`min-w-11 min-h-11 px-3 inline-flex items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-full px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan ${
                         isPaid
-                          ? 'bg-green-500/20 text-green-300'
-                          : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                          ? 'bg-route-cyan/20 text-route-cyan'
+                          : 'bg-white/5 text-mist-blue hover:bg-white/10'
                       }`}
                     >
                       <Check className={`w-3.5 h-3.5 ${isPaid ? '' : 'opacity-40'}`} />

@@ -39,16 +39,16 @@ export function RecordsList({
   const panelId = "records-list-panel";
 
   return (
-    <div className="bg-[#1c1c1e] rounded-3xl border border-gray-800 overflow-hidden mb-4">
+    <div className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-midnight-platform">
       <button
         onClick={onToggle}
         aria-expanded={expanded}
         aria-controls={panelId}
-        className="w-full p-4 flex justify-between items-center hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+        className="flex w-full items-center justify-between p-4 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan focus-visible:ring-inset"
       >
-        <h3 className="font-bold text-gray-300">{t.recordList}</h3>
+        <h3 className="font-bold text-cloud-white">{t.recordList}</h3>
         <ChevronDown
-          className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 text-mist-blue transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -58,12 +58,12 @@ export function RecordsList({
           {categoryFilter && (() => {
             const cat = CATEGORIES.find(c => c.id === categoryFilter);
             return cat ? (
-              <div className="mb-3 inline-flex items-center gap-2 bg-white/10 rounded-full pl-3 pr-1 py-1 text-xs">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/5 pl-3 pr-1 py-1 text-xs text-cloud-white">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat.id] }} />
                 <span>只睇「{cat.icon} {cat.label}」</span>
                 <button
                   onClick={() => setCategoryFilter(null)}
-                  className="min-w-11 min-h-11 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-mist-blue hover:bg-white/10 hover:text-cloud-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-cyan"
                   aria-label="清除類別篩選"
                 >
                   ✕
@@ -74,8 +74,8 @@ export function RecordsList({
           {dateGroups.length === 0 && (
             <div className="text-center py-10">
               <div className="text-5xl mb-3">📭</div>
-              <div className="text-gray-400 mb-1">{categoryFilter ? t.emptyFiltered : t.emptyRecords}</div>
-              <div className="text-xs text-gray-500">{categoryFilter ? t.emptyFilteredHint : t.emptyRecordsHint}</div>
+              <div className="mb-1 text-mist-blue">{categoryFilter ? t.emptyFiltered : t.emptyRecords}</div>
+              <div className="text-xs text-mist-blue/70">{categoryFilter ? t.emptyFilteredHint : t.emptyRecordsHint}</div>
             </div>
           )}
 
@@ -105,7 +105,7 @@ export function RecordsList({
                   className="w-full p-4 bg-black hover:bg-gray-900/80 transition-colors flex justify-between items-center"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-blue-300">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-route-cyan/20 bg-route-cyan/10 text-route-cyan">
                       <Calendar className="w-5 h-5" aria-hidden="true" />
                     </div>
                     <div className="text-left">
@@ -168,7 +168,7 @@ export function RecordsList({
                             <div className="font-bold text-sm mr-1">${e.amountHKD.toFixed(1)}</div>
                             <button
                               onClick={() => onEdit(e)}
-                              className="min-w-11 min-h-11 flex items-center justify-center text-lg hover:bg-blue-500/20 rounded-lg transition-colors"
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg text-mist-blue transition-colors hover:bg-signal-amber/15 hover:text-signal-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-amber"
                               aria-label="編輯記錄"
                               title="編輯"
                             >
