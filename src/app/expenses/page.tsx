@@ -29,6 +29,7 @@ import { TotalCard } from "./components/TotalCard";
 import { NeonRouteRibbon } from "./components/NeonRouteRibbon";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { FavoritesModal } from "./components/FavoritesModal";
+import { TripCreatedScreen } from "./components/TripCreatedScreen";
 
 function ExpensesPageContent() {
   const router = useRouter();
@@ -50,6 +51,8 @@ function ExpensesPageContent() {
   // Create Trip State
   const [tripName, setTripName] = useState("");
   const [memberNames, setMemberNames] = useState<string[]>(["", ""]);
+  // 啱啱建立完旅程 -> 先顯示 TripCreatedScreen，逼旅程碼離開部機先入記帳頁
+  const [justCreated, setJustCreated] = useState(false);
 
   // Expense Input State
   const [category, setCategory] = useState("dining");
@@ -347,6 +350,8 @@ function ExpensesPageContent() {
       const res = await createTrip(trimmedName, members);
       clearTimeout(safetyTimer);
       // 成功後直接跳轉，不需要存 localStorage，因為跳轉後的 URL 包含 code，會觸發上面的 useEffect
+      // router.replace 係同一條 route，唔會 unmount，所以呢個 flag 過得到跳轉
+      setJustCreated(true);
       router.replace(`/expenses?code=${res.code}`);
     } catch (e) {
       clearTimeout(safetyTimer);
@@ -1056,6 +1061,27 @@ function ExpensesPageContent() {
         setMemberNames={setMemberNames}
         onCreate={handleCreateTrip}
         submitting={submitting}
+      />
+    );
+  }
+
+  // 情況 C2: 啱啱建立完 -> 先叫人記低旅程碼，之後先入記帳頁
+  if (justCreated && data) {
+    return (
+      <TripCreatedScreen
+        tripName={data.name}
+        code={data.code}
+        memberCount={data.members.length}
+        onShare={handleShareLink}
+        onCopyCode={async () => {
+          const copied = await copyTextToClipboard(data.code);
+          if (copied) {
+            showToast("旅程碼已複製");
+          } else {
+            showToast("複製失敗，請手動抄低", "error");
+          }
+        }}
+        onEnter={() => setJustCreated(false)}
       />
     );
   }

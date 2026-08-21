@@ -222,6 +222,11 @@ export function CreateTripScreen({
                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> 建立中...</> : '🚀 開始旅程'}
               </button>
           </div>
+
+          {/* 預告下一步：令建立完嗰版「記低旅程碼」唔會突兀，減少反射性撳走 */}
+          <p className="mt-3 text-center text-xs text-gray-500">
+            開完會有個 8 位旅程碼，記得分享落群組留底
+          </p>
           </div>
         </div>
 
