@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://menu-app.vercel.app";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://travel-tools.zeabur.app"),
+  metadataBase: new URL(siteUrl),
   title: "旅程記帳",
   description: "多人旅行記帳與自動結算工具，支援多幣種換算",
   manifest: "/manifest.json",

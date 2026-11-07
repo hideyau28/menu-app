@@ -1,33 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 旅程記帳 (menu-app)
 
-## Getting Started
+Next.js 多人旅行記帳／分帳。Production 目標：**Vercel + Neon Postgres**.
 
-First, run the development server:
+## Local
 
 ```bash
+cp .env.example .env   # 填 DATABASE_URL 等
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Env
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+見 [`.env.example`](.env.example)：`DATABASE_URL`、`DATABASE_SSL=require`、`DB_POOL_MAX=1`、`NEXT_PUBLIC_SITE_URL`。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## DB migrate
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- 空庫套 schema：`DATABASE_URL=... ./scripts/apply-schema.sh`
+- 由 Zeabur 搬資料：`ZEABUR_DATABASE_URL=... DATABASE_URL=... ./scripts/migrate-from-zeabur.sh`
 
 ## Deploy on Vercel
 
