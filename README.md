@@ -1,6 +1,9 @@
 # 旅程記帳 (menu-app)
 
-Next.js 多人旅行記帳／分帳。Production 目標：**Vercel + Neon Postgres**.
+Next.js 多人旅行記帳／分帳。
+
+**Live:** https://menu-app-weld-eta.vercel.app  
+Stack: **Vercel + Neon Postgres** (migrated from Zeabur).
 
 ## Local
 
