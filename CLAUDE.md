@@ -1,5 +1,7 @@
 # 旅程記帳 (menu-app)
 
+Reply to the user in Cantonese.
+
 Group travel expense tracker and bill splitter. No login: a trip is shared via an 8-character trip code. Cantonese UI.
 Next.js 16 App Router + Server Actions + Postgres (Neon), deployed on Vercel.
 
